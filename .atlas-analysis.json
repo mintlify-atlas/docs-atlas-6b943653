@@ -1,0 +1,238 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Agent Desktop",
+  "projectDescription": "Native desktop automation CLI for AI agents with structured JSON output and deterministic element references.",
+  "theme": "aspen",
+  "primaryColor": "#0F766E",
+  "lightColor": "#5EEAD4",
+  "darkColor": "#134E4A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "permissions"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workflow",
+              "concepts/refs",
+              "concepts/json-output",
+              "concepts/error-handling"
+            ]
+          },
+          {
+            "group": "Command Categories",
+            "pages": [
+              "commands/observation",
+              "commands/interaction",
+              "commands/keyboard",
+              "commands/mouse",
+              "commands/app-window",
+              "commands/clipboard",
+              "commands/wait",
+              "commands/system",
+              "commands/batch"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/snapshot-options",
+              "guides/key-combos",
+              "guides/exit-codes",
+              "guides/platform-support"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/architecture",
+              "advanced/development",
+              "advanced/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Observation Commands",
+            "pages": [
+              "api/snapshot",
+              "api/screenshot",
+              "api/find",
+              "api/get",
+              "api/is",
+              "api/list-surfaces"
+            ]
+          },
+          {
+            "group": "Interaction Commands",
+            "pages": [
+              "api/click",
+              "api/double-click",
+              "api/triple-click",
+              "api/right-click",
+              "api/type",
+              "api/set-value",
+              "api/clear",
+              "api/focus",
+              "api/select",
+              "api/toggle",
+              "api/check",
+              "api/uncheck",
+              "api/expand",
+              "api/collapse",
+              "api/scroll",
+              "api/scroll-to"
+            ]
+          },
+          {
+            "group": "Keyboard Commands",
+            "pages": [
+              "api/press",
+              "api/key-down",
+              "api/key-up"
+            ]
+          },
+          {
+            "group": "Mouse Commands",
+            "pages": [
+              "api/hover",
+              "api/drag",
+              "api/mouse-move",
+              "api/mouse-click",
+              "api/mouse-down",
+              "api/mouse-up"
+            ]
+          },
+          {
+            "group": "App & Window Commands",
+            "pages": [
+              "api/launch",
+              "api/close-app",
+              "api/list-windows",
+              "api/list-apps",
+              "api/focus-window",
+              "api/resize-window",
+              "api/move-window",
+              "api/minimize",
+              "api/maximize",
+              "api/restore"
+            ]
+          },
+          {
+            "group": "Notification Commands",
+            "pages": [
+              "api/list-notifications",
+              "api/dismiss-notification",
+              "api/dismiss-all-notifications",
+              "api/notification-action"
+            ]
+          },
+          {
+            "group": "Clipboard Commands",
+            "pages": [
+              "api/clipboard-get",
+              "api/clipboard-set",
+              "api/clipboard-clear"
+            ]
+          },
+          {
+            "group": "Wait Commands",
+            "pages": [
+              "api/wait"
+            ]
+          },
+          {
+            "group": "System Commands",
+            "pages": [
+              "api/status",
+              "api/permissions",
+              "api/version"
+            ]
+          },
+          {
+            "group": "Batch Commands",
+            "pages": [
+              "api/batch"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Native Rust CLI with 50+ commands for desktop automation",
+    "AI-optimized snapshot & ref workflow with deterministic element references",
+    "AX-first interactions that exhaust accessibility strategies before mouse fallbacks",
+    "Structured JSON output with error codes and recovery hints",
+    "Works with any macOS app through native accessibility trees",
+    "Fast single binary with no runtime dependencies"
+  ],
+  "publicApiSurface": [
+    "snapshot",
+    "screenshot",
+    "find",
+    "get",
+    "is",
+    "list-surfaces",
+    "click",
+    "double-click",
+    "triple-click",
+    "right-click",
+    "type",
+    "set-value",
+    "clear",
+    "focus",
+    "select",
+    "toggle",
+    "check",
+    "uncheck",
+    "expand",
+    "collapse",
+    "scroll",
+    "scroll-to",
+    "press",
+    "key-down",
+    "key-up",
+    "hover",
+    "drag",
+    "mouse-move",
+    "mouse-click",
+    "mouse-down",
+    "mouse-up",
+    "launch",
+    "close-app",
+    "list-windows",
+    "list-apps",
+    "focus-window",
+    "resize-window",
+    "move-window",
+    "minimize",
+    "maximize",
+    "restore",
+    "list-notifications",
+    "dismiss-notification",
+    "dismiss-all-notifications",
+    "notification-action",
+    "clipboard-get",
+    "clipboard-set",
+    "clipboard-clear",
+    "wait",
+    "status",
+    "permissions",
+    "version",
+    "batch"
+  ]
+}
