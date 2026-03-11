@@ -1,0 +1,194 @@
+---
+title: press
+description: Send a keyboard shortcut or single key press
+---
+
+## Syntax
+
+```bash
+agent-desktop press <combo> [--app <name>]
+```
+
+## Description
+
+Sends a key combination or single key press to the active application (or a specific app if `--app` is provided). This command simulates pressing and releasing keys in sequence, making it ideal for keyboard shortcuts.
+
+The key is sent at the OS level using native input synthesis, which works globally or can be targeted to a specific application.
+
+## Parameters
+
+<ParamField path="combo" type="string" required>
+  Key combination to press. See [Key Combo Format](#key-combo-format) below for syntax.
+</ParamField>
+
+<ParamField path="--app" type="string">
+  Target application name. If provided, focuses the app before pressing the key combo.
+</ParamField>
+
+## Key Combo Format
+
+### Single Keys
+
+```bash
+agent-desktop press return
+agent-desktop press escape
+agent-desktop press tab
+agent-desktop press space
+agent-desktop press delete
+```
+
+Common single keys: `return`, `escape`, `tab`, `space`, `delete`, `backspace`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`
+
+Function keys: `f1`, `f2`, `f3`, `f4`, `f5`, `f6`, `f7`, `f8`, `f9`, `f10`, `f11`, `f12`
+
+### Key Combinations with Modifiers
+
+```bash
+agent-desktop press cmd+c          # Copy
+agent-desktop press cmd+v          # Paste
+agent-desktop press cmd+s          # Save
+agent-desktop press shift+tab      # Reverse tab
+```
+
+### Multiple Modifiers
+
+```bash
+agent-desktop press cmd+shift+z    # Redo
+agent-desktop press ctrl+alt+delete
+agent-desktop press cmd+shift+3    # Screenshot
+```
+
+### Modifier Aliases
+
+- `cmd`, `command` → Command/Windows key
+- `ctrl`, `control` → Control key
+- `alt`, `option` → Alt/Option key
+- `shift` → Shift key
+
+Modifiers and keys are case-insensitive and spaces are ignored:
+
+```bash
+agent-desktop press CMD+SHIFT+Z    # Same as cmd+shift+z
+agent-desktop press cmd + shift + z # Spaces ignored
+```
+
+## Response
+
+### Success Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "press",
+  "data": {
+    "action": "press_key"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "press",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Unknown modifier: 'super'",
+    "suggestion": "Use cmd, ctrl, alt, or shift as modifiers"
+  }
+}
+```
+
+## Examples
+
+### Basic Keyboard Shortcuts
+
+```bash
+# Save current document
+agent-desktop press cmd+s
+
+# Undo last action
+agent-desktop press cmd+z
+
+# Navigate forward in browser
+agent-desktop press cmd+]
+```
+
+### Navigation Keys
+
+```bash
+# Move to next field
+agent-desktop press tab
+
+# Move to previous field
+agent-desktop press shift+tab
+
+# Go to end of line
+agent-desktop press cmd+right
+
+# Page down
+agent-desktop press pagedown
+```
+
+### Application-Targeted Keys
+
+```bash
+# Refresh Safari specifically
+agent-desktop press cmd+r --app Safari
+
+# Close TextEdit window
+agent-desktop press cmd+w --app TextEdit
+
+# New window in Finder
+agent-desktop press cmd+n --app Finder
+```
+
+### Function Keys
+
+```bash
+# Rename file in Finder
+agent-desktop press return --app Finder
+
+# Show desktop
+agent-desktop press f11
+
+# Spotlight search
+agent-desktop press cmd+space
+```
+
+## Safety Blocks
+
+The following key combinations are blocked for safety reasons and will return an error:
+
+- `cmd+q` — Quit application
+- `cmd+shift+q` — Log out
+- `cmd+alt+esc` — Force quit dialog
+- `ctrl+cmd+q` — Lock screen
+- `cmd+shift+delete` — Empty trash
+
+If you need to quit an app, use the [`close-app`](/api/close-app) command instead.
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_ARGS` | Invalid key combo format or unknown modifier |
+| `APP_NOT_FOUND` | Target app (via `--app`) is not running |
+| `ACTION_FAILED` | OS rejected the key event |
+| `PERM_DENIED` | Accessibility permission not granted |
+
+## Notes
+
+- Keys are sent to the frontmost application unless `--app` is specified
+- When using `--app`, the application is focused before sending the key
+- The command waits for the key event to be delivered but does not wait for the resulting action to complete
+- Special characters in shells may need escaping: use quotes if needed
+
+## Related Commands
+
+- [`key-down`](/api/key-down) — Hold a key or modifier down
+- [`key-up`](/api/key-up) — Release a held key or modifier
+- [`type`](/api/type) — Type text into a specific element

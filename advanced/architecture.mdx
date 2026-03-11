@@ -1,0 +1,287 @@
+---
+title: Architecture
+description: Understand the workspace structure, crate organization, and dependency inversion patterns in agent-desktop
+---
+
+## Overview
+
+agent-desktop is built as a Rust workspace with a strict separation between platform-agnostic core logic and platform-specific adapters. This architecture enables cross-platform support while maintaining a clean, testable codebase.
+
+<Note>
+  The architecture follows **dependency inversion**: core defines interfaces, platforms implement them. Core never imports platform crates.
+</Note>
+
+## Workspace Structure
+
+```
+agent-desktop/
+├── Cargo.toml              # workspace: members, shared deps
+├── rust-toolchain.toml     # pinned Rust version (1.78+)
+├── clippy.toml             # project-wide lint config
+├── crates/
+│   ├── core/               # agent-desktop-core (platform-agnostic)
+│   ├── macos/              # agent-desktop-macos (Phase 1)
+│   ├── windows/            # agent-desktop-windows (stub → Phase 2)
+│   └── linux/              # agent-desktop-linux (stub → Phase 2)
+├── src/                    # agent-desktop binary (entry point)
+│   ├── main.rs             # entry point, permission check, JSON envelope
+│   ├── cli.rs              # clap derive enum (Commands)
+│   ├── cli_args.rs         # all command argument structs
+│   ├── dispatch.rs         # command dispatcher + parse helpers
+│   └── batch_dispatch.rs   # batch command execution
+└── tests/
+    ├── fixtures/           # golden JSON snapshots
+    └── integration/        # macOS CI integration tests
+```
+
+## Core Crate (`agent-desktop-core`)
+
+The core crate contains:
+
+- **`PlatformAdapter` trait**: 12-method interface that all platforms implement
+- **Shared types**: `AccessibilityNode`, `Action`, `WindowInfo`, `RefEntry`, error types
+- **Command handlers**: Each command has an `execute()` function in `commands/`
+- **Ref system**: Deterministic element reference allocation (`@e1`, `@e2`, ...)
+
+### Key Principles
+
+<CardGroup cols={2}>
+  <Card title="Zero Platform Imports" icon="ban">
+    Core never imports `macos`, `windows`, or `linux` crates. CI enforces this with `cargo tree -p agent-desktop-core`.
+  </Card>
+  <Card title="Trait-Based" icon="puzzle-piece">
+    All platform operations go through the `PlatformAdapter` trait. Default implementations return `not_supported()`.
+  </Card>
+  <Card title="One Command Per File" icon="file">
+    Each CLI command lives in its own file under `commands/`. Max 400 LOC per file.
+  </Card>
+  <Card title="Structured Errors" icon="triangle-exclamation">
+    Every error includes a code, message, suggestion, and optional platform detail.
+  </Card>
+</CardGroup>
+
+## Platform Crates
+
+### Folder Structure
+
+All platform crates (`macos`, `windows`, `linux`) follow an identical layout:
+
+```
+crates/{macos,windows,linux}/src/
+├── lib.rs              # mod declarations + re-exports only
+├── adapter.rs          # PlatformAdapter trait impl (~175 LOC)
+├── tree/               # Reading & understanding the UI
+│   ├── element.rs      # AXElement struct + attribute readers
+│   ├── builder.rs      # build_subtree, tree traversal
+│   ├── roles.rs        # Role mapping
+│   ├── resolve.rs      # Element re-identification
+│   └── surfaces.rs     # Surface detection
+├── actions/            # Interacting with elements
+│   ├── dispatch.rs     # perform_action match arms
+│   ├── activate.rs     # Smart AX-first activation chain
+│   └── extras.rs       # select_value, ax_scroll
+├── input/              # Low-level OS input synthesis
+│   ├── keyboard.rs     # Key synthesis, text typing
+│   ├── mouse.rs        # Mouse events
+│   └── clipboard.rs    # Clipboard get/set
+└── system/             # App lifecycle, windows, permissions
+    ├── app_ops.rs      # launch, close, focus
+    ├── window_ops.rs   # window operations
+    ├── key_dispatch.rs # app-targeted key press
+    ├── permissions.rs  # permission checks
+    ├── screenshot.rs   # screen capture
+    └── wait.rs         # wait utilities
+```
+
+### macOS Implementation (Phase 1)
+
+The macOS adapter uses native accessibility APIs:
+
+- **Tree traversal**: `AXUIElementCreateApplication(pid)` + `kAXChildrenAttribute` recursion
+- **Batch fetching**: `AXUIElementCopyMultipleAttributeValues` for 3-5x speed boost
+- **Action execution**: `AXUIElementPerformAction` with 15-step AX-first fallback chain
+- **Input synthesis**: `CGEventCreateKeyboardEvent` / `CGEventCreateMouseEvent`
+- **Clipboard**: `NSPasteboard.generalPasteboard` via Cocoa FFI
+- **Screenshot**: `CGWindowListCreateImage`
+
+<Warning>
+  macOS requires Accessibility permission. The adapter calls `AXIsProcessTrusted()` on startup and returns `PERM_DENIED` if not granted.
+</Warning>
+
+## Binary Crate (`src/`)
+
+The binary is the only place that wires platform → core:
+
+```rust
+fn build_adapter() -> impl PlatformAdapter {
+    #[cfg(target_os = "macos")]
+    { agent_desktop_macos::MacOSAdapter::new() }
+
+    #[cfg(target_os = "windows")]
+    { agent_desktop_windows::WindowsAdapter::new() }
+
+    #[cfg(target_os = "linux")]
+    { agent_desktop_linux::LinuxAdapter::new() }
+}
+```
+
+### Command Dispatch
+
+Simple `match` statement, no trait dispatch:
+
+```rust
+pub fn dispatch(cmd: Commands, adapter: &dyn PlatformAdapter) -> Result<Value, AppError> {
+    match cmd {
+        Commands::Snapshot(args) => commands::snapshot::execute(args, adapter),
+        Commands::Click(args) => commands::click::execute(args, adapter),
+        // ... one arm per command
+    }
+}
+```
+
+## PlatformAdapter Trait
+
+The trait defines 12 core methods:
+
+<AccordionGroup>
+  <Accordion title="Tree & Window Operations">
+    ```rust
+    fn list_windows(&self, filter: &WindowFilter) -> Result<Vec<WindowInfo>, AdapterError>;
+    fn list_apps(&self) -> Result<Vec<AppInfo>, AdapterError>;
+    fn get_tree(&self, win: &WindowInfo, opts: &TreeOptions) -> Result<AccessibilityNode, AdapterError>;
+    fn focus_window(&self, win: &WindowInfo) -> Result<(), AdapterError>;
+    ```
+  </Accordion>
+  
+  <Accordion title="Element Actions">
+    ```rust
+    fn execute_action(&self, handle: &NativeHandle, action: Action) -> Result<ActionResult, AdapterError>;
+    fn resolve_element(&self, entry: &RefEntry) -> Result<NativeHandle, AdapterError>;
+    ```
+  </Accordion>
+  
+  <Accordion title="App Lifecycle">
+    ```rust
+    fn launch_app(&self, id: &str, wait: bool) -> Result<WindowInfo, AdapterError>;
+    fn close_app(&self, id: &str, force: bool) -> Result<(), AdapterError>;
+    ```
+  </Accordion>
+  
+  <Accordion title="System Integration">
+    ```rust
+    fn check_permissions(&self) -> PermissionStatus;
+    fn screenshot(&self, target: ScreenshotTarget) -> Result<ImageBuffer, AdapterError>;
+    fn get_clipboard(&self) -> Result<String, AdapterError>;
+    fn set_clipboard(&self, text: &str) -> Result<(), AdapterError>;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+All methods have default implementations that return `Err(AdapterError::not_supported())`.
+
+## Key Types
+
+| Type | Purpose | Fields |
+|------|---------|--------|
+| `AccessibilityNode` | Platform-agnostic tree node | `ref`, `role`, `name`, `value`, `description`, `states`, `bounds`, `children` |
+| `Action` | Element interaction | `Click`, `SetValue(String)`, `SetFocus`, `Expand`, `Toggle`, `Scroll(Direction, Amount)`, `PressKey(KeyCombo)` |
+| `NativeHandle` | Opaque platform pointer | `PhantomData<*const ()>` to prevent auto-Send/Sync |
+| `RefEntry` | Ref storage record | `pid`, `role`, `name`, `bounds_hash`, `available_actions` |
+| `WindowInfo` | Window metadata | `id`, `title`, `app_name`, `pid`, `bounds` |
+| `ErrorCode` | Machine-readable error | `PERM_DENIED`, `ELEMENT_NOT_FOUND`, `STALE_REF`, etc. |
+
+## Ref System
+
+<Steps>
+  <Step title="Snapshot assigns refs">
+    Interactive elements receive sequential refs in depth-first order: `@e1`, `@e2`, `@e3`, ...
+  </Step>
+  <Step title="RefMap persisted to disk">
+    Stored at `~/.agent-desktop/last_refmap.json` with `0o600` permissions.
+  </Step>
+  <Step title="Actions resolve refs">
+    Commands like `click @e3` use optimistic re-identification: `(pid, role, name, bounds_hash)`.
+  </Step>
+  <Step title="Stale detection">
+    If resolution fails, returns `STALE_REF` error with suggestion to re-snapshot.
+  </Step>
+</Steps>
+
+**Interactive roles that receive refs:**
+
+`button`, `textfield`, `checkbox`, `link`, `menuitem`, `tab`, `slider`, `combobox`, `treeitem`, `cell`, `radiobutton`, `incrementor`, `menubutton`, `switch`, `colorwell`, `dockitem`
+
+**Static elements** (labels, groups, containers) appear in the tree for context but have no ref.
+
+## Phase Model
+
+agent-desktop follows an additive phase model:
+
+<Timeline>
+  <Event title="Phase 1: Foundation + macOS" timestamp="Current">
+    50 commands, core engine, macOS adapter, ref system, JSON output
+  </Event>
+  <Event title="Phase 2: Windows + Linux" timestamp="Planned">
+    Add Windows/Linux adapters implementing the same `PlatformAdapter` trait. Core unchanged.
+  </Event>
+  <Event title="Phase 3: MCP Server" timestamp="Planned">
+    Add `--mcp` flag to run as Model Context Protocol server. Wraps existing commands.
+  </Event>
+  <Event title="Phase 4: Daemon Mode" timestamp="Future">
+    Sessions, persistent state, enterprise quality gates.
+  </Event>
+</Timeline>
+
+<Note>
+  Phases 2-4 add adapters/transports/hardening. **Nothing in core is rebuilt.**
+</Note>
+
+## Dependencies
+
+### Core Dependencies (all platforms)
+
+```toml
+clap = "4.5"              # CLI parsing with derive macros
+serde = "1.0"             # JSON serialization
+serde_json = "1.0"        # JSON output
+thiserror = "2.0"         # Error derive macros
+tracing = "0.1"           # Structured logging
+base64 = "0.22"           # Screenshot encoding
+rustc-hash = "2.1"        # Fast hashing
+```
+
+### Platform-Specific (macOS)
+
+```toml
+accessibility-sys = "0.1" # AXUIElement FFI
+core-foundation = "0.10"  # CF types
+core-graphics = "0.24"    # CG types
+```
+
+### Target-Gated
+
+Binary crate uses `[target.'cfg(target_os = "macos")'.dependencies]` syntax to conditionally include platform crates.
+
+## Build Configuration
+
+Optimized for small binary size (under 15MB target):
+
+```toml
+[profile.release]
+opt-level = "z"           # optimize for size
+lto = true                # link-time optimization
+codegen-units = 1         # single codegen unit
+strip = true              # strip symbols
+panic = "abort"           # smaller panic handler
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="code" href="./development">
+    Learn about build commands, testing, and contributing
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="./troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

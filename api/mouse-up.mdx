@@ -1,0 +1,131 @@
+---
+title: mouse-up
+description: Release mouse button at coordinates
+---
+
+## Syntax
+
+```bash
+agent-desktop mouse-up --xy <x,y> [--button <button>]
+```
+
+## Description
+
+Releases a previously pressed mouse button at absolute screen coordinates. Must be paired with [mouse-down](/api/mouse-down) to complete manual mouse operations.
+
+<Note>
+  The button type must match the button used in the preceding `mouse-down` command.
+</Note>
+
+## Parameters
+
+<ParamField path="--xy" type="string" required>
+  Absolute screen coordinates in format `x,y` (e.g., `500,300`). Coordinates are measured from the top-left corner of the primary display.
+</ParamField>
+
+<ParamField path="--button" type="string" default="left">
+  Mouse button to release:
+  - `left` - Primary button
+  - `right` - Secondary button
+  - `middle` - Middle button (scroll wheel)
+</ParamField>
+
+## Examples
+
+### Release left button
+
+```bash
+agent-desktop mouse-up --xy 500,300
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "mouse-up",
+  "data": {
+    "released": true,
+    "x": 500.0,
+    "y": 300.0
+  }
+}
+```
+
+### Release right button
+
+```bash
+agent-desktop mouse-up --xy 500,300 --button right
+```
+
+### Complete drag operation
+
+```bash
+# Start drag
+agent-desktop mouse-down --xy 100,200
+
+# Move cursor
+agent-desktop mouse-move --xy 400,200
+
+# Complete drag
+agent-desktop mouse-up --xy 400,200
+```
+
+### Multi-step drag with pause
+
+```bash
+agent-desktop mouse-down --xy 100,200
+agent-desktop mouse-move --xy 250,200
+agent-desktop wait 200
+agent-desktop mouse-move --xy 400,200
+agent-desktop mouse-up --xy 400,200
+```
+
+Drags with a pause in the middle, useful for triggering hover states during drag.
+
+### Release after long press
+
+```bash
+agent-desktop mouse-down --xy 500,300
+agent-desktop wait 1000
+agent-desktop mouse-up --xy 500,300
+```
+
+Completes a long-press gesture (1 second hold).
+
+## Use Cases
+
+- Complete manual drag operations started with `mouse-down`
+- Release button after timed hold for gestures
+- Implement complex multi-button sequences
+- Fine-grained mouse state control for custom interactions
+- Cleanup after interrupted operations
+
+## Common Patterns
+
+### Standard Drag
+
+```bash
+mouse-down → mouse-move → mouse-up
+```
+
+### Long Press
+
+```bash
+mouse-down → wait → mouse-up
+```
+
+### Multi-stage Drag
+
+```bash
+mouse-down → mouse-move → wait → mouse-move → mouse-up
+```
+
+## Related Commands
+
+- [mouse-down](/api/mouse-down) - Press button (required pair)
+- [mouse-move](/api/mouse-move) - Move cursor during drag
+- [mouse-click](/api/mouse-click) - Complete press-release in one command
+- [drag](/api/drag) - High-level drag with automatic press/release
+- [wait](/api/wait) - Pause between mouse operations

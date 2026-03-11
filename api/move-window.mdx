@@ -1,0 +1,97 @@
+---
+title: "move-window"
+description: "Move an application window to a new position"
+---
+
+## Usage
+
+```bash
+agent-desktop move-window --x <X> --y <Y> [OPTIONS]
+```
+
+## Description
+
+Moves an application window to the specified screen coordinates. The window is identified by application name (defaults to focused app if not specified).
+
+## Parameters
+
+<ParamField path="--x" type="number" required>
+  New window X position (left edge) in screen pixels
+</ParamField>
+
+<ParamField path="--y" type="number" required>
+  New window Y position (top edge) in screen pixels
+</ParamField>
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — if not specified, operates on the focused application
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "move-window",
+  "data": {
+    "moved": true,
+    "x": 100.0,
+    "y": 200.0
+  }
+}
+```
+
+## Examples
+
+### Move focused window
+
+```bash
+agent-desktop move-window --x 0 --y 0
+```
+
+### Move specific app window
+
+```bash
+agent-desktop move-window --app Safari --x 100 --y 100
+```
+
+### Move to screen center (1920x1080)
+
+```bash
+agent-desktop move-window --app TextEdit --x 560 --y 240
+```
+
+### Move and resize together
+
+```bash
+agent-desktop move-window --app Finder --x 0 --y 0
+agent-desktop resize-window --app Finder --width 800 --height 600
+```
+
+### Position windows side-by-side
+
+```bash
+# Left half
+agent-desktop move-window --app Safari --x 0 --y 0
+agent-desktop resize-window --app Safari --width 960 --height 1080
+
+# Right half
+agent-desktop move-window --app TextEdit --x 960 --y 0
+agent-desktop resize-window --app TextEdit --width 960 --height 1080
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not running or has no windows
+- `WINDOW_NOT_FOUND` — No window found for the specified application
+- `INVALID_ARGS` — Invalid x or y coordinates
+- `ACTION_FAILED` — Failed to move window
+
+## Notes
+
+- Coordinates are in screen pixels with origin (0,0) at top-left
+- On macOS with multiple displays, coordinates span all screens
+- Fullscreen windows cannot be moved
+- On macOS, requires Accessibility permission
+- If multiple windows exist for the app, the first one is moved

@@ -1,0 +1,187 @@
+---
+title: check
+description: Set checkbox or switch to checked state (idempotent)
+---
+
+## Overview
+
+Ensures a checkbox or switch is in the checked state. If already checked, does nothing. This is an idempotent operation, safe to call multiple times.
+
+## Syntax
+
+```bash
+agent-desktop check <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must be a `checkbox` or `switch`)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "check",
+  "data": {
+    "action": "check",
+    "ref_id": "@e8",
+    "post_state": {
+      "role": "checkbox",
+      "value": "1",
+      "states": ["enabled", "checked"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`check`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was checked
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after operation
+  - `role` (string): "checkbox" or "switch"
+  - `value` (string): "1" (checked)
+  - `states` (string[]): Includes "checked"
+</ResponseField>
+
+## AX-First Strategy
+
+The check command:
+
+1. Reads current state via `kAXValueAttribute`
+2. If already checked (value = 1), returns success without action
+3. If unchecked (value = 0), performs `kAXPressAction`
+4. Verifies final state is checked
+
+## Usage Examples
+
+### Check Checkbox
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role checkbox --name "Enable Location Services"
+agent-desktop check @e10
+```
+
+### Idempotent Check
+
+```bash
+# Safe to run multiple times
+agent-desktop check @e8
+agent-desktop check @e8  # No-op if already checked
+agent-desktop check @e8  # Still no-op
+```
+
+### Enable Multiple Options
+
+```bash
+agent-desktop batch '[
+  {"command": "check", "args": {"ref_id": "@e3"}},
+  {"command": "check", "args": {"ref_id": "@e5"}},
+  {"command": "check", "args": {"ref_id": "@e7"}},
+  {"command": "click", "args": {"ref_id": "@e12"}}
+]'
+```
+
+### Conditional Check
+
+```bash
+# Check only if needed
+if agent-desktop is @e8 checked | jq -r '.data' == "false"; then
+  echo "Already checked, skipping"
+else
+  agent-desktop check @e8
+fi
+```
+
+## Check vs Toggle
+
+| Command | Behavior | Idempotent | Use Case |
+|---------|----------|------------|----------|
+| `check` | Ensure checked | Yes | Desired end state |
+| `toggle` | Flip state | No | Unknown current state |
+| `uncheck` | Ensure unchecked | Yes | Desired end state |
+
+**Use `check` when:**
+- You need the checkbox checked
+- Idempotency is important
+- Running automation scripts repeatedly
+- Setting up known state
+
+**Use `toggle` when:**
+- You want to flip whatever the current state is
+- Simulating user clicking
+
+## Supported Element Types
+
+| Role | Check Behavior |
+|------|---------------|
+| `checkbox` | Sets to checked |
+| `switch` | Sets to on |
+| `radiobutton` | Selects option |
+
+## State Verification
+
+```bash
+# Check the checkbox
+agent-desktop check @e8
+
+# Verify it's checked
+agent-desktop is @e8 checked
+# Returns: {"ok": true, "data": true}
+
+# Check again (no-op)
+agent-desktop check @e8
+# Still checked, no state change
+```
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Cannot set checked state | Element may be disabled |
+| `ACTION_NOT_SUPPORTED` | Element is not a checkbox/switch | Wrong element type |
+
+## Common Use Cases
+
+- **Configuration**: Enable settings in preferences
+- **Forms**: Pre-fill form checkboxes
+- **Permissions**: Grant permissions
+- **Feature Flags**: Enable features
+- **Setup Scripts**: Configure applications
+
+## Idempotency Benefits
+
+```bash
+# This script can be run multiple times safely
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop check @e3   # Enable FileVault
+agent-desktop check @e5   # Enable Firewall
+agent-desktop check @e7   # Enable Location Services
+agent-desktop click @e10  # Save settings
+```
+
+Even if some options are already checked, the script succeeds.
+
+## Notes
+
+- Check is idempotent; safe to call when already checked
+- Returns success immediately if already in checked state
+- Pair with `uncheck` for state management
+- Use `is @ref checked` to verify state before or after
+- For radio buttons, `check` selects the option
+- Some apps may trigger onChange events even on no-op check
+- Always verify critical state changes with `is` command

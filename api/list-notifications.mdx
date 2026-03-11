@@ -1,0 +1,217 @@
+---
+title: list-notifications
+description: List notifications from macOS Notification Center
+---
+
+List all notifications currently in the Notification Center, with optional filters by app or text content.
+
+## Usage
+
+```bash
+agent-desktop list-notifications [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string" optional>
+  Filter to notifications from this application
+  
+  ```bash
+  agent-desktop list-notifications --app Slack
+  ```
+</ParamField>
+
+<ParamField path="--text" type="string" optional>
+  Filter to notifications containing this text in title or body
+  
+  ```bash
+  agent-desktop list-notifications --text "meeting"
+  ```
+</ParamField>
+
+<ParamField path="--limit" type="number" optional>
+  Maximum number of notifications to return
+  
+  ```bash
+  agent-desktop list-notifications --limit 5
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="count" type="number" required>
+  Total number of notifications returned
+</ResponseField>
+
+<ResponseField name="notifications" type="array" required>
+  Array of notification objects
+  
+  <Expandable title="notification object">
+    <ResponseField name="index" type="number" required>
+      0-based index for use with dismiss-notification and notification-action commands
+    </ResponseField>
+    
+    <ResponseField name="app_name" type="string" required>
+      Name of the application that sent the notification
+    </ResponseField>
+    
+    <ResponseField name="title" type="string" required>
+      Notification title
+    </ResponseField>
+    
+    <ResponseField name="body" type="string" optional>
+      Notification body text (omitted if empty)
+    </ResponseField>
+    
+    <ResponseField name="actions" type="array" optional>
+      Array of action button names (e.g., ["Reply", "Open"]). Omitted if no actions available.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### List All Notifications
+
+```bash
+agent-desktop list-notifications
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-notifications",
+  "data": {
+    "count": 3,
+    "notifications": [
+      {
+        "index": 0,
+        "app_name": "Messages",
+        "title": "New message from John",
+        "body": "Hey, are you available?",
+        "actions": ["Reply", "Open"]
+      },
+      {
+        "index": 1,
+        "app_name": "Slack",
+        "title": "#engineering",
+        "body": "New message in channel"
+      },
+      {
+        "index": 2,
+        "app_name": "Calendar",
+        "title": "Meeting in 10 minutes"
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+### Filter by App
+
+```bash
+agent-desktop list-notifications --app Slack
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-notifications",
+  "data": {
+    "count": 1,
+    "notifications": [
+      {
+        "index": 1,
+        "app_name": "Slack",
+        "title": "#engineering",
+        "body": "New message in channel"
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+### Filter by Text
+
+```bash
+agent-desktop list-notifications --text "meeting"
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-notifications",
+  "data": {
+    "count": 1,
+    "notifications": [
+      {
+        "index": 2,
+        "app_name": "Calendar",
+        "title": "Meeting in 10 minutes"
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+### Limit Results
+
+```bash
+agent-desktop list-notifications --limit 2
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Monitor Incoming Messages">
+    Check for new messages across communication apps:
+    
+    ```bash
+    agent-desktop list-notifications --app Slack
+    agent-desktop list-notifications --app Messages
+    ```
+  </Accordion>
+
+  <Accordion title="Wait for Specific Notification">
+    Poll for a notification containing specific text:
+    
+    ```bash
+    # Combined with wait command
+    agent-desktop wait --notification --text "deployment complete"
+    ```
+  </Accordion>
+
+  <Accordion title="Notification Triage">
+    List notifications and dismiss specific ones:
+    
+    ```bash
+    agent-desktop list-notifications
+    # Note the index of unwanted notification
+    agent-desktop dismiss-notification 1
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Notes
+
+- Notifications are returned in the order they appear in Notification Center
+- The `index` field is 0-based and used by `dismiss-notification` and `notification-action` commands
+- Not all notifications have action buttons; the `actions` field is omitted if empty
+- Filters are case-insensitive partial matches
+- Dismissed notifications are removed from the list immediately
+
+## Related Commands
+
+- [dismiss-notification](/api/dismiss-notification) - Dismiss a notification by index
+- [dismiss-all-notifications](/api/dismiss-all-notifications) - Dismiss all notifications
+- [notification-action](/api/notification-action) - Click an action button on a notification
+- [wait](/api/wait) - Wait for a new notification to arrive

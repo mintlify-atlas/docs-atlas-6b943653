@@ -1,0 +1,106 @@
+---
+title: double-click
+description: Double-click an element
+---
+
+## Overview
+
+Performs a double-click action on an element. Commonly used to open files, folders, or select words in text fields.
+
+## Syntax
+
+```bash
+agent-desktop double-click <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "double-click",
+  "data": {
+    "action": "double_click",
+    "ref_id": "@e8"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`double_click`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was double-clicked
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after the action
+</ResponseField>
+
+## AX-First Strategy
+
+The double-click command uses accessibility APIs when available, then falls back to:
+
+1. Native double-click action if exposed via AX
+2. Two rapid `kAXPressAction` calls
+3. Mouse double-click at element center
+
+## Usage Examples
+
+### Open a File in Finder
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "cell" --name "document.pdf"
+agent-desktop double-click @e12
+```
+
+### Select a Word in Text Editor
+
+```bash
+agent-desktop snapshot --app TextEdit -i
+agent-desktop double-click @e4  # Double-click on word to select it
+agent-desktop press cmd+c        # Copy selected text
+```
+
+### Open Folder
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "cell" --name "Documents"
+agent-desktop double-click @e5
+agent-desktop wait 300
+agent-desktop snapshot -i
+```
+
+## Common Use Cases
+
+- **File Management**: Open files and folders in Finder
+- **Text Selection**: Select words in text fields and editors
+- **Desktop Icons**: Launch applications from desktop
+- **List Items**: Open items in list views
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support double-click | Try single `click` or alternative action |
+
+## Notes
+
+- Timing between clicks is platform-optimized (typically 200-300ms)
+- Some apps may treat double-click as two single clicks
+- Use `triple-click` for line/paragraph selection
+- Always snapshot after double-click to capture resulting UI changes

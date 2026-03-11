@@ -1,0 +1,76 @@
+---
+title: "minimize"
+description: "Minimize an application window to the Dock"
+---
+
+## Usage
+
+```bash
+agent-desktop minimize [OPTIONS]
+```
+
+## Description
+
+Minimizes an application window, sending it to the Dock (macOS) or taskbar (Windows). The window is identified by application name (defaults to focused app if not specified).
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — if not specified, operates on the focused application
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "minimize",
+  "data": {
+    "minimized": true
+  }
+}
+```
+
+## Examples
+
+### Minimize focused window
+
+```bash
+agent-desktop minimize
+```
+
+### Minimize specific app
+
+```bash
+agent-desktop minimize --app Safari
+```
+
+### Minimize and restore
+
+```bash
+agent-desktop minimize --app TextEdit
+agent-desktop wait 1000
+agent-desktop restore --app TextEdit
+```
+
+### Minimize all windows of an app
+
+```bash
+# Minimize first window (repeat for each window)
+agent-desktop minimize --app Safari
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not running or has no windows
+- `WINDOW_NOT_FOUND` — No window found for the specified application
+- `ACTION_FAILED` — Failed to minimize window
+
+## Notes
+
+- Minimized windows are hidden but the application remains running
+- Use `restore` to bring minimized windows back
+- Minimized windows do not appear in `list-windows` output
+- On macOS, requires Accessibility permission
+- If multiple windows exist for the app, the first one is minimized

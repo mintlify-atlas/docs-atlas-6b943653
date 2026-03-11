@@ -1,0 +1,159 @@
+---
+title: set-value
+description: Set element value directly via accessibility attribute
+---
+
+## Overview
+
+Sets an element's value directly using the accessibility API (`kAXValueAttribute`). This is faster than typing and bypasses keyboard events, making it ideal for bulk text entry or filling fields that don't require keystroke validation.
+
+## Syntax
+
+```bash
+agent-desktop set-value <ref> <value>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Value to set (no length limit)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "set-value",
+  "data": {
+    "action": "set_value",
+    "ref_id": "@e7",
+    "post_state": {
+      "role": "textfield",
+      "value": "new value here",
+      "states": ["enabled", "focused"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`set_value`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was updated
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after setting value
+  - `role` (string): Element role
+  - `value` (string): New element value
+  - `states` (string[]): Current states
+</ResponseField>
+
+## AX-First Strategy
+
+The set-value command:
+
+1. Sets `kAXValueAttribute` directly via accessibility API
+2. Falls back to `clear` + `type` if AX set fails
+3. Returns updated element state
+
+## Usage Examples
+
+### Set Text Field Value
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role textfield --name "Email"
+agent-desktop set-value @e4 "user@example.com"
+```
+
+### Fill Large Text Area
+
+```bash
+# Read content from file
+CONTENT=$(cat document.txt)
+
+agent-desktop snapshot --app TextEdit -i
+agent-desktop set-value @e2 "$CONTENT"
+```
+
+### Update Slider Value
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role slider --name "Volume"
+agent-desktop set-value @e8 "75"
+```
+
+### Batch Form Fill
+
+```bash
+agent-desktop batch '[
+  {"command": "set-value", "args": {"ref_id": "@e3", "value": "John"}},
+  {"command": "set-value", "args": {"ref_id": "@e5", "value": "Doe"}},
+  {"command": "set-value", "args": {"ref_id": "@e7", "value": "john@example.com"}},
+  {"command": "click", "args": {"ref_id": "@e12"}}
+]'
+```
+
+## Supported Element Types
+
+| Role | Value Type | Example |
+|------|------------|----------|
+| `textfield` | String | Email, password, search |
+| `textarea` | String | Multi-line text |
+| `slider` | Numeric string | "50", "75" |
+| `combobox` | String | Selected option |
+| `incrementor` | Numeric string | Stepper value |
+
+## Set-Value vs Type
+
+| Aspect | set-value | type |
+|--------|-----------|------|
+| Speed | Fast (instant) | Slower (char-by-char) |
+| Keyboard events | Not triggered | Triggered |
+| Validation | May be skipped | Triggers on keypress |
+| Autocomplete | Won't trigger | Will trigger |
+| Max length | Unlimited | 10,000 chars |
+| Use case | Bulk data entry | User simulation |
+
+**Use `set-value` when:**
+- Filling large text areas
+- No validation on keypress
+- Speed is priority
+- Keyboard events not required
+
+**Use `type` when:**
+- Autocomplete must trigger
+- Validation happens on keypress
+- Simulating real user typing
+- Keyboard shortcuts should fire
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support value attribute | Try `type` or `clear` + `type` |
+| `ACTION_NOT_SUPPORTED` | Element type doesn't accept values | Wrong element type |
+
+## Notes
+
+- Replaces existing value completely (not append)
+- No length limit (unlike `type` with 10K limit)
+- Does not trigger keyboard events (`keydown`, `keyup`)
+- Does not move cursor or trigger autocomplete
+- May not work with custom input components
+- Always verify value was set by reading it back if critical
+- For password fields, some apps may block AX value reads

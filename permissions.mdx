@@ -1,0 +1,215 @@
+---
+title: Permissions Setup
+description: Grant macOS Accessibility permissions to enable agent-desktop
+---
+
+## Overview
+
+macOS requires **Accessibility permission** for agent-desktop to read UI elements and perform actions. Without this permission, all commands will fail with a `PERM_DENIED` error.
+
+<Warning>
+  You must grant Accessibility permission to your **terminal application** (Terminal.app, iTerm2, VS Code terminal, etc.), not to agent-desktop itself.
+</Warning>
+
+## Quick Setup
+
+<Steps>
+
+<Step title="Trigger the system permission dialog">
+  
+  Run the permissions command to trigger macOS's permission request dialog:
+  
+  ```bash
+  agent-desktop permissions --request
+  ```
+  
+  A system dialog will appear asking you to grant Accessibility permission.
+  
+</Step>
+
+<Step title="Open System Settings">
+  
+  If the dialog doesn't appear, manually open System Settings:
+  
+  1. Open **System Settings** (System Preferences on macOS 12 and earlier)
+  2. Navigate to **Privacy & Security**
+  3. Click **Accessibility** in the sidebar
+  
+</Step>
+
+<Step title="Add your terminal application">
+  
+  In the Accessibility pane:
+  
+  1. Click the **lock icon** at the bottom and authenticate
+  2. Click the **+** button
+  3. Navigate to `/Applications/Utilities/` and select your terminal app:
+     - **Terminal.app** (default macOS terminal)
+     - **iTerm.app** (iTerm2)
+     - **Visual Studio Code.app** (VS Code integrated terminal)
+     - **Warp.app** (Warp terminal)
+  4. Click **Open**
+  5. Ensure the checkbox next to your terminal is **enabled**
+  
+</Step>
+
+<Step title="Verify permissions">
+  
+  Check that the permission was granted successfully:
+  
+  ```bash
+  agent-desktop permissions
+  ```
+  
+  **Expected output:**
+  
+  ```json
+  {
+    "version": "1.0",
+    "ok": true,
+    "command": "permissions",
+    "data": {
+      "accessibility": true,
+      "platform": "macos"
+    }
+  }
+  ```
+  
+  If `"accessibility": false`, restart your terminal and check again.
+  
+</Step>
+
+</Steps>
+
+## Manual Setup Path
+
+If you prefer to set permissions manually without the trigger command:
+
+1. **System Settings** → **Privacy & Security** → **Accessibility**
+2. Click the **lock** and authenticate
+3. Click **+** and add your terminal application
+4. Enable the checkbox
+
+## Troubleshooting
+
+### Permission denied error
+
+If you see this error:
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy > Accessibility and add your terminal"
+  }
+}
+```
+
+**Solution:**
+
+1. Verify your **terminal application** (not agent-desktop) is in the Accessibility list
+2. Ensure the checkbox is **enabled**
+3. **Restart your terminal** completely (quit and reopen)
+4. Run `agent-desktop permissions` to verify
+
+### Permission granted but commands still fail
+
+<Note>
+  **Common cause:** You granted permission to the wrong application.
+  
+  Make sure you added your **terminal application**, not `agent-desktop` binary itself.
+</Note>
+
+**Steps to fix:**
+
+1. Open System Settings → Privacy & Security → Accessibility
+2. Remove any incorrect entries (like `agent-desktop` binary)
+3. Add your actual terminal application (Terminal.app, iTerm.app, etc.)
+4. **Completely restart your terminal**
+5. Test with `agent-desktop permissions`
+
+### Using agent-desktop from different terminals
+
+If you use multiple terminal applications, you must grant Accessibility permission to **each one**:
+
+- Terminal.app
+- iTerm2
+- VS Code integrated terminal
+- Warp
+- Any other terminal emulator
+
+Each requires its own permission entry.
+
+### CI/CD environments
+
+For automated environments:
+
+1. Grant permission to the CI runner's shell (bash, zsh, etc.)
+2. Or use `tccutil` to programmatically grant permissions (requires Full Disk Access)
+
+<Warning>
+  Programmatic permission grants using `tccutil` require disabling System Integrity Protection (SIP) or require the controlling process to have Full Disk Access. Not recommended for production.
+</Warning>
+
+## Checking Permission Status
+
+Use the `status` command to see full system information including permissions:
+
+```bash
+agent-desktop status
+```
+
+**Output:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "status",
+  "data": {
+    "platform": "macos",
+    "version": "14.2.1",
+    "accessibility_enabled": true,
+    "agent_desktop_version": "0.1.11"
+  }
+}
+```
+
+Or just check permissions:
+
+```bash
+agent-desktop permissions
+```
+
+## Why Accessibility Permission?
+
+agent-desktop uses macOS's **Accessibility API** (AXUIElement) to:
+
+- Read UI element hierarchies (accessibility trees)
+- Perform interactions like clicks, typing, and focus changes
+- Query element properties (role, name, value, state)
+
+This is the same permission used by:
+
+- Screen readers (VoiceOver)
+- Automation tools (Keyboard Maestro, BetterTouchTool)
+- Password managers (1Password, Dashlane)
+
+The permission allows reading and controlling **any application's UI**, which is why macOS protects it.
+
+## Next Steps
+
+Once permissions are granted, you're ready to use agent-desktop:
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Learn the snapshot → act → snapshot workflow
+  </Card>
+  <Card title="Commands Overview" icon="terminal" href="/commands/overview">
+    Explore 50+ available commands
+  </Card>
+</CardGroup>

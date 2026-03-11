@@ -1,0 +1,101 @@
+---
+title: mouse-down
+description: Press mouse button at coordinates without releasing
+---
+
+## Syntax
+
+```bash
+agent-desktop mouse-down --xy <x,y> [--button <button>]
+```
+
+## Description
+
+Presses a mouse button at absolute screen coordinates **without releasing it**. Useful for manual drag operations or holding buttons for extended actions.
+
+<Warning>
+  You must call [mouse-up](/api/mouse-up) to release the button. Failing to do so may leave the mouse in a pressed state.
+</Warning>
+
+## Parameters
+
+<ParamField path="--xy" type="string" required>
+  Absolute screen coordinates in format `x,y` (e.g., `500,300`). Coordinates are measured from the top-left corner of the primary display.
+</ParamField>
+
+<ParamField path="--button" type="string" default="left">
+  Mouse button to press:
+  - `left` - Primary button
+  - `right` - Secondary button
+  - `middle` - Middle button (scroll wheel)
+</ParamField>
+
+## Examples
+
+### Press left button
+
+```bash
+agent-desktop mouse-down --xy 500,300
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "mouse-down",
+  "data": {
+    "pressed": true,
+    "x": 500.0,
+    "y": 300.0
+  }
+}
+```
+
+### Press right button
+
+```bash
+agent-desktop mouse-down --xy 500,300 --button right
+```
+
+### Manual drag sequence
+
+```bash
+# Press at start point
+agent-desktop mouse-down --xy 100,200
+
+# Move to end point
+agent-desktop mouse-move --xy 400,200
+
+# Release button
+agent-desktop mouse-up --xy 400,200
+```
+
+This sequence manually constructs a drag operation with full control over timing and path.
+
+### Press and hold for context menu
+
+```bash
+agent-desktop mouse-down --xy 500,300
+agent-desktop wait 800
+agent-desktop mouse-up --xy 500,300
+```
+
+Some applications show context menus on long press.
+
+## Use Cases
+
+- Implement custom drag-and-drop with intermediate steps
+- Hold button while moving cursor along specific path
+- Simulate long-press gestures for context menus
+- Multi-button sequences (hold one button, click another)
+- Fine-grained control over mouse state timing
+
+## Related Commands
+
+- [mouse-up](/api/mouse-up) - Release the pressed button (required pair)
+- [mouse-move](/api/mouse-move) - Move cursor while button is held
+- [mouse-click](/api/mouse-click) - Complete press-release cycle
+- [drag](/api/drag) - High-level drag operation
+- [wait](/api/wait) - Pause between press and release

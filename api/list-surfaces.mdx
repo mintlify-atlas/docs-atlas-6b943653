@@ -1,0 +1,276 @@
+---
+title: list-surfaces
+description: List accessibility surfaces for an app (window, menu, sheet, etc.)
+---
+
+List all accessibility surfaces available for an application. Surfaces include windows, menus, menu bars, sheets, popovers, and alerts.
+
+## Usage
+
+```bash
+agent-desktop list-surfaces [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Filter to a specific application by name. If omitted, uses the focused application.
+</ParamField>
+
+## Response
+
+<ResponseField name="pid" type="number">
+  Process ID of the application.
+</ResponseField>
+
+<ResponseField name="surfaces" type="array">
+  Array of accessibility surfaces.
+  
+  <Expandable title="properties">
+    <ResponseField name="type" type="string">
+      Surface type: `window`, `menu`, `menubar`, `sheet`, `popover`, `alert`.
+    </ResponseField>
+    
+    <ResponseField name="title" type="string" optional>
+      Surface title (e.g., window title or menu name). May be empty for some surfaces.
+    </ResponseField>
+    
+    <ResponseField name="item_count" type="number" optional>
+      Number of items in the surface (for menus and menu bars).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### List surfaces for Finder
+
+```bash
+agent-desktop list-surfaces --app Finder
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-surfaces",
+  "data": {
+    "pid": 1234,
+    "surfaces": [
+      {
+        "type": "window",
+        "title": "Documents"
+      },
+      {
+        "type": "window",
+        "title": "Downloads"
+      },
+      {
+        "type": "menubar",
+        "item_count": 8
+      }
+    ]
+  }
+}
+```
+
+### List surfaces with active menu
+
+```bash
+agent-desktop list-surfaces --app TextEdit
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-surfaces",
+  "data": {
+    "pid": 5678,
+    "surfaces": [
+      {
+        "type": "window",
+        "title": "Untitled"
+      },
+      {
+        "type": "menubar",
+        "item_count": 7
+      },
+      {
+        "type": "menu",
+        "title": "File",
+        "item_count": 12
+      }
+    ]
+  }
+}
+```
+
+### List surfaces with sheet
+
+```bash
+agent-desktop list-surfaces --app Safari
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-surfaces",
+  "data": {
+    "pid": 9012,
+    "surfaces": [
+      {
+        "type": "window",
+        "title": "Google"
+      },
+      {
+        "type": "menubar",
+        "item_count": 9
+      },
+      {
+        "type": "sheet",
+        "title": "Save As"
+      }
+    ]
+  }
+}
+```
+
+### List surfaces with alert
+
+```bash
+agent-desktop list-surfaces --app Notes
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-surfaces",
+  "data": {
+    "pid": 3456,
+    "surfaces": [
+      {
+        "type": "window",
+        "title": "Notes"
+      },
+      {
+        "type": "menubar",
+        "item_count": 6
+      },
+      {
+        "type": "alert",
+        "title": "Delete Note?"
+      }
+    ]
+  }
+}
+```
+
+### Focused app with no additional surfaces
+
+```bash
+agent-desktop list-surfaces
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-surfaces",
+  "data": {
+    "pid": 7890,
+    "surfaces": [
+      {
+        "type": "window",
+        "title": "Terminal"
+      },
+      {
+        "type": "menubar",
+        "item_count": 7
+      }
+    ]
+  }
+}
+```
+
+## Error Cases
+
+### Application not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "list-surfaces",
+  "error": {
+    "code": "APP_NOT_FOUND",
+    "message": "No windows found for app 'InvalidApp'"
+  }
+}
+```
+
+### Permission denied
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "list-surfaces",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal"
+  }
+}
+```
+
+## Surface Types
+
+### window
+Standard application windows. Most apps have at least one window.
+
+### menubar
+The application's menu bar. Present for all GUI apps on macOS.
+
+### menu
+An open menu (e.g., File, Edit, View). Only present when a menu is actively displayed.
+
+### sheet
+A modal sheet attached to a window (e.g., Save dialog, Preferences).
+
+### popover
+A popover window (e.g., color picker, formatting options).
+
+### alert
+A modal alert or confirmation dialog.
+
+## Notes
+
+- The list is **dynamic** and reflects the current state of the application.
+- **Menus** only appear in the list when they are actively open.
+- **Sheets, popovers, and alerts** are temporary and disappear after dismissal.
+- Use the `--surface` flag with the `snapshot` command to capture a specific surface.
+- The `item_count` field is only populated for menus and menu bars.
+- Not all surfaces have a `title` (e.g., some popovers).
+
+## Use Cases
+
+### Detect open menus
+Check if any surfaces have `type: "menu"` to determine if a menu is currently open.
+
+### Wait for dialogs
+Poll `list-surfaces` to detect when a sheet or alert appears.
+
+### Capture menu structure
+Use `list-surfaces` to find an open menu, then `snapshot --surface menu` to capture its contents.
+
+### Verify window count
+Count surfaces with `type: "window"` to ensure the expected number of windows are open.
+
+## See Also
+
+- [snapshot](/api/snapshot) - Capture a specific surface
+- [list-windows](/api/list-windows) - List all visible windows
+- [list-apps](/api/list-apps) - List all running GUI applications

@@ -1,0 +1,207 @@
+---
+title: key-down
+description: Hold a key or modifier down without releasing it
+---
+
+## Syntax
+
+```bash
+agent-desktop key-down <combo>
+```
+
+## Description
+
+Holds down a key or modifier without releasing it. This is useful for complex input sequences where you need to maintain a key press while performing other actions, or for simulating sustained key presses.
+
+The key remains held until you explicitly call [`key-up`](/api/key-up) with the same key or modifier.
+
+## Parameters
+
+<ParamField path="combo" type="string" required>
+  Key or modifier to hold down. See [Key Combo Format](#key-combo-format) below for syntax.
+</ParamField>
+
+## Key Combo Format
+
+### Single Modifiers
+
+```bash
+agent-desktop key-down shift
+agent-desktop key-down cmd
+agent-desktop key-down ctrl
+agent-desktop key-down alt
+```
+
+### Single Keys
+
+```bash
+agent-desktop key-down space
+agent-desktop key-down return
+agent-desktop key-down a
+```
+
+### Modifier Combinations
+
+```bash
+agent-desktop key-down cmd+shift
+agent-desktop key-down ctrl+alt
+```
+
+### Modifier Aliases
+
+- `cmd`, `command` → Command/Windows key
+- `ctrl`, `control` → Control key
+- `alt`, `option` → Alt/Option key
+- `shift` → Shift key
+
+Keys are case-insensitive:
+
+```bash
+agent-desktop key-down SHIFT    # Same as shift
+agent-desktop key-down Cmd      # Same as cmd
+```
+
+## Response
+
+### Success Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "key-down",
+  "data": {
+    "key_down": "shift"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "key-down",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Unknown modifier: 'super'",
+    "suggestion": "Use cmd, ctrl, alt, or shift as modifiers"
+  }
+}
+```
+
+## Examples
+
+### Hold Shift for Multiple Selections
+
+```bash
+# Hold shift
+agent-desktop key-down shift
+
+# Click multiple items
+agent-desktop click @e5
+agent-desktop click @e8
+agent-desktop click @e12
+
+# Release shift
+agent-desktop key-up shift
+```
+
+### Simulate Drag with Space Bar
+
+Some applications use space+drag for panning:
+
+```bash
+# Hold space
+agent-desktop key-down space
+
+# Drag to pan
+agent-desktop drag --from @e1 --to @e5
+
+# Release space
+agent-desktop key-up space
+```
+
+### Hold Modifier for Keyboard Shortcut Variations
+
+```bash
+# Hold cmd
+agent-desktop key-down cmd
+
+# Now click behaves as cmd+click
+agent-desktop click @e3
+
+# Release cmd
+agent-desktop key-up cmd
+```
+
+### Multi-Modifier Hold
+
+```bash
+# Hold cmd+shift together
+agent-desktop key-down cmd+shift
+
+# Perform action while both are held
+agent-desktop click @e7
+
+# Release both
+agent-desktop key-up cmd+shift
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_ARGS` | Invalid key format or unknown modifier |
+| `ACTION_FAILED` | OS rejected the key-down event |
+| `PERM_DENIED` | Accessibility permission not granted |
+
+## Notes
+
+- **Always pair `key-down` with `key-up`** to avoid stuck modifier states
+- If your script exits unexpectedly with keys held, the OS may keep them in the "down" state until manually released
+- Held modifiers affect all subsequent input (clicks, typing, etc.) until released
+- The command returns immediately; it does not wait for a key-up event
+
+## Best Practices
+
+### Use Try-Finally Pattern
+
+When scripting, ensure keys are always released:
+
+```bash
+# Pseudo-code pattern
+try:
+    agent-desktop key-down shift
+    # ... perform actions ...
+finally:
+    agent-desktop key-up shift
+```
+
+### Avoid Long-Running Holds
+
+Release keys as soon as possible to avoid interfering with user input or other automation.
+
+### Match Down and Up Calls
+
+If you hold `cmd+shift`, release with the exact same combo:
+
+```bash
+agent-desktop key-down cmd+shift
+# ... actions ...
+agent-desktop key-up cmd+shift   # Correct
+```
+
+Releasing one at a time may leave the other stuck:
+
+```bash
+agent-desktop key-down cmd+shift
+agent-desktop key-up cmd         # shift still held!
+```
+
+## Related Commands
+
+- [`key-up`](/api/key-up) — Release a held key or modifier
+- [`press`](/api/press) — Press and release a key combo in one action
+- [`type`](/api/type) — Type text into a specific element

@@ -1,0 +1,99 @@
+---
+title: "launch"
+description: "Launch an application and wait until its window is visible"
+---
+
+## Usage
+
+```bash
+agent-desktop launch <APP> [OPTIONS]
+```
+
+## Description
+
+Launches an application by name or bundle ID and waits until its window appears on screen. This command is idempotent — if the app is already running, it will be activated and its window brought to the front.
+
+## Parameters
+
+<ParamField path="app" type="string" required>
+  Application name (e.g., "Safari") or bundle ID (e.g., "com.apple.Safari")
+</ParamField>
+
+<ParamField path="--timeout" type="number" default="30000">
+  Maximum time in milliseconds to wait for the window to appear
+</ParamField>
+
+## Response
+
+Returns a `WindowInfo` object for the launched application's window:
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "launch",
+  "data": {
+    "id": "w-4521",
+    "title": "Untitled",
+    "app_name": "TextEdit",
+    "pid": 12345,
+    "is_focused": true,
+    "bounds": {
+      "x": 100.0,
+      "y": 200.0,
+      "width": 800.0,
+      "height": 600.0
+    }
+  }
+}
+```
+
+### Response Fields
+
+- `id` — Unique window identifier for use with window management commands
+- `title` — Current window title
+- `app_name` — Application name
+- `pid` — Process ID
+- `is_focused` — Whether this window currently has focus
+- `bounds` — Window position and size (optional)
+
+## Examples
+
+### Launch by application name
+
+```bash
+agent-desktop launch Safari
+```
+
+### Launch by bundle ID
+
+```bash
+agent-desktop launch com.apple.Safari
+```
+
+### Launch with custom timeout
+
+```bash
+agent-desktop launch "Visual Studio Code" --timeout 10000
+```
+
+### Launch and verify in script
+
+```bash
+RESULT=$(agent-desktop launch TextEdit)
+if echo "$RESULT" | jq -e '.ok' > /dev/null; then
+  echo "TextEdit launched successfully"
+fi
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application does not exist on the system
+- `TIMEOUT` — Application did not show a window within the timeout period
+- `INTERNAL` — System error during launch
+
+## Notes
+
+- The command waits for a visible window — apps that launch without windows (e.g., menu bar apps) may timeout
+- On macOS, requires Accessibility permission
+- If the app is already running, it will be activated instead of launching a new instance

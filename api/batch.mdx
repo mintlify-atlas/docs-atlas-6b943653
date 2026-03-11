@@ -1,0 +1,390 @@
+---
+title: batch
+description: Execute multiple commands from a JSON array
+---
+
+Execute multiple agent-desktop commands in sequence from a JSON array, with optional error handling.
+
+## Usage
+
+```bash
+agent-desktop batch '<JSON>' [--stop-on-error]
+```
+
+## Parameters
+
+<ParamField path="JSON" type="string" required>
+  JSON array of command objects. Each object must have a `command` field (string) and an optional `args` field (object).
+  
+  ```bash
+  agent-desktop batch '[{"command":"click","args":{"ref_id":"@e1"}}]'
+  ```
+</ParamField>
+
+<ParamField path="--stop-on-error" type="boolean" optional default="false">
+  Stop executing commands after the first failure. Without this flag, all commands are attempted even if some fail.
+  
+  ```bash
+  agent-desktop batch '<JSON>' --stop-on-error
+  ```
+</ParamField>
+
+## JSON Format
+
+Each command object in the array:
+
+```json
+{
+  "command": "<command-name>",
+  "args": {
+    "<arg-name>": "<arg-value>",
+    ...
+  }
+}
+```
+
+### Command Names
+
+Use kebab-case command names as they appear in the CLI:
+- `"snapshot"`, `"click"`, `"type"`, `"press"`, etc.
+
+### Args Object
+
+The `args` object mirrors the CLI arguments:
+
+| CLI Argument | JSON Field |
+|--------------|------------|
+| Positional argument | Use field name from docs |
+| `--flag value` | `{"flag": "value"}` |
+| `--boolean-flag` | `{"boolean_flag": true}` |
+
+Examples:
+
+```json
+// CLI: agent-desktop click @e3
+{"command": "click", "args": {"ref_id": "@e3"}}
+
+// CLI: agent-desktop type @e5 "hello"
+{"command": "type", "args": {"ref_id": "@e5", "text": "hello"}}
+
+// CLI: agent-desktop snapshot --app Finder -i
+{"command": "snapshot", "args": {"app": "Finder", "interactive_only": true}}
+
+// CLI: agent-desktop press cmd+s
+{"command": "press", "args": {"combo": "cmd+s"}}
+
+// CLI: agent-desktop wait 500
+{"command": "wait", "args": {"ms": 500}}
+```
+
+## Response
+
+<ResponseField name="results" type="array" required>
+  Array of command results, one per command in the input array
+  
+  <Expandable title="result object">
+    <ResponseField name="command" type="string" required>
+      The command name that was executed
+    </ResponseField>
+    
+    <ResponseField name="ok" type="boolean" required>
+      `true` if the command succeeded, `false` if it failed
+    </ResponseField>
+    
+    <ResponseField name="data" type="object" optional>
+      Command-specific response data. Only present if `ok` is `true`.
+    </ResponseField>
+    
+    <ResponseField name="error" type="object" optional>
+      Error details. Only present if `ok` is `false`.
+      
+      <Expandable title="error object">
+        <ResponseField name="code" type="string">
+          Error code (e.g., `"STALE_REF"`, `"ELEMENT_NOT_FOUND"`)
+        </ResponseField>
+        
+        <ResponseField name="message" type="string">
+          Human-readable error message
+        </ResponseField>
+        
+        <ResponseField name="suggestion" type="string" optional>
+          Recovery guidance
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number" required>
+  Total number of commands in the batch
+</ResponseField>
+
+<ResponseField name="succeeded" type="number" required>
+  Number of commands that succeeded
+</ResponseField>
+
+<ResponseField name="failed" type="number" required>
+  Number of commands that failed
+</ResponseField>
+
+## Examples
+
+### Simple Batch
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e2"}},
+  {"command": "type", "args": {"ref_id": "@e5", "text": "hello"}},
+  {"command": "press", "args": {"combo": "return"}}
+]'
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "batch",
+  "data": {
+    "results": [
+      {
+        "command": "click",
+        "ok": true,
+        "data": {"action": "click"}
+      },
+      {
+        "command": "type",
+        "ok": true,
+        "data": {"typed": "hello"}
+      },
+      {
+        "command": "press",
+        "ok": true,
+        "data": {"key": "return"}
+      }
+    ],
+    "total": 3,
+    "succeeded": 3,
+    "failed": 0
+  }
+}
+```
+</ResponseExample>
+
+### With Failures
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e1"}},
+  {"command": "click", "args": {"ref_id": "@e999"}},
+  {"command": "click", "args": {"ref_id": "@e2"}}
+]'
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "batch",
+  "data": {
+    "results": [
+      {
+        "command": "click",
+        "ok": true,
+        "data": {"action": "click"}
+      },
+      {
+        "command": "click",
+        "ok": false,
+        "error": {
+          "code": "ELEMENT_NOT_FOUND",
+          "message": "Ref @e999 not found in refmap",
+          "suggestion": "Run 'snapshot' to refresh refs"
+        }
+      },
+      {
+        "command": "click",
+        "ok": true,
+        "data": {"action": "click"}
+      }
+    ],
+    "total": 3,
+    "succeeded": 2,
+    "failed": 1
+  }
+}
+```
+</ResponseExample>
+
+### Stop on Error
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e1"}},
+  {"command": "click", "args": {"ref_id": "@e999"}},
+  {"command": "click", "args": {"ref_id": "@e2"}}
+]' --stop-on-error
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "batch",
+  "data": {
+    "results": [
+      {
+        "command": "click",
+        "ok": true,
+        "data": {"action": "click"}
+      },
+      {
+        "command": "click",
+        "ok": false,
+        "error": {
+          "code": "ELEMENT_NOT_FOUND",
+          "message": "Ref @e999 not found in refmap",
+          "suggestion": "Run 'snapshot' to refresh refs"
+        }
+      }
+    ],
+    "total": 3,
+    "succeeded": 1,
+    "failed": 1
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Form Filling">
+    Fill out a form in one batch:
+    
+    ```bash
+    agent-desktop batch '[
+      {"command": "type", "args": {"ref_id": "@e2", "text": "john@example.com"}},
+      {"command": "type", "args": {"ref_id": "@e3", "text": "John Doe"}},
+      {"command": "check", "args": {"ref_id": "@e5"}},
+      {"command": "click", "args": {"ref_id": "@e7"}}
+    ]'
+    ```
+  </Accordion>
+
+  <Accordion title="Multi-Step Automation">
+    Combine observation and interaction:
+    
+    ```bash
+    agent-desktop batch '[
+      {"command": "snapshot", "args": {"app": "Finder", "interactive_only": true}},
+      {"command": "click", "args": {"ref_id": "@e3"}},
+      {"command": "wait", "args": {"ms": 500}},
+      {"command": "snapshot", "args": {"interactive_only": true}}
+    ]'
+    ```
+  </Accordion>
+
+  <Accordion title="Keyboard Macro">
+    Execute a sequence of key presses:
+    
+    ```bash
+    agent-desktop batch '[
+      {"command": "press", "args": {"combo": "cmd+a"}},
+      {"command": "press", "args": {"combo": "cmd+c"}},
+      {"command": "press", "args": {"combo": "cmd+tab"}},
+      {"command": "press", "args": {"combo": "cmd+v"}}
+    ]'
+    ```
+  </Accordion>
+
+  <Accordion title="Transactional Operations">
+    Use `--stop-on-error` for all-or-nothing workflows:
+    
+    ```bash
+    agent-desktop batch '[
+      {"command": "click", "args": {"ref_id": "@e1"}},
+      {"command": "type", "args": {"ref_id": "@e2", "text": "data"}},
+      {"command": "click", "args": {"ref_id": "@e3"}}
+    ]' --stop-on-error
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+### Without --stop-on-error (default)
+
+- All commands are attempted, even if some fail
+- Each result has its own `ok` field
+- The top-level response has `"ok": true` even if some commands failed
+- Check `failed` count and individual `results[].ok` to detect failures
+
+### With --stop-on-error
+
+- Commands are executed sequentially until one fails
+- Remaining commands are not executed
+- The `results` array contains only executed commands
+- The top-level response still has `"ok": true` (the batch command itself succeeded)
+
+### Parsing Errors
+
+If the JSON is malformed, the entire batch fails:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "batch",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Invalid batch JSON: expected value at line 1 column 1",
+    "suggestion": "Ensure JSON array is properly formatted"
+  }
+}
+```
+</ResponseExample>
+
+## Performance Considerations
+
+- Commands are executed **sequentially**, not in parallel
+- Each command's execution time adds to total batch time
+- Use `wait` commands sparingly; prefer event-driven waits (`--element`, `--text`) over fixed delays
+- Large batches (>50 commands) may be slow; consider breaking into smaller batches
+
+## Shell Quoting
+
+When passing JSON in bash, use single quotes to avoid escaping:
+
+```bash
+# Good: single quotes
+agent-desktop batch '[{"command":"click","args":{"ref_id":"@e1"}}]'
+
+# Bad: double quotes require escaping
+agent-desktop batch "[{\"command\":\"click\",\"args\":{\"ref_id\":\"@e1\"}}]"
+```
+
+For multi-line JSON, use heredoc:
+
+```bash
+agent-desktop batch "$(cat <<'EOF'
+[
+  {"command": "click", "args": {"ref_id": "@e1"}},
+  {"command": "type", "args": {"ref_id": "@e2", "text": "hello"}}
+]
+EOF
+)"
+```
+
+## Related Commands
+
+All agent-desktop commands can be used in batch mode. Common combinations:
+
+- [snapshot](/api/snapshot) - Capture UI state
+- [click](/api/click) - Click elements
+- [type](/api/type) - Type text
+- [press](/api/press) - Send keyboard shortcuts
+- [wait](/api/wait) - Pause or wait for conditions

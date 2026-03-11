@@ -1,0 +1,178 @@
+---
+title: focus
+description: Set keyboard focus on element
+---
+
+## Overview
+
+Sets keyboard focus on an element, making it the active element for keyboard input. This brings the element into focus without triggering click actions, useful for preparing elements for keyboard navigation or input.
+
+## Syntax
+
+```bash
+agent-desktop focus <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "focus",
+  "data": {
+    "action": "set_focus",
+    "ref_id": "@e4",
+    "post_state": {
+      "role": "textfield",
+      "states": ["enabled", "focused"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`set_focus`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that received focus
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after focusing
+  - `role` (string): Element role
+  - `states` (string[]): Should include "focused"
+</ResponseField>
+
+## AX-First Strategy
+
+The focus command uses:
+
+1. Set `kAXFocusedAttribute` to `true` via accessibility
+2. Try tab navigation to element
+3. Click element center if AX focus fails
+
+## Usage Examples
+
+### Focus Text Field Before Typing
+
+```bash
+agent-desktop snapshot --app TextEdit -i
+agent-desktop focus @e3
+agent-desktop press cmd+a  # Select all in focused field
+agent-desktop type @e3 "new content"
+```
+
+### Focus Window Element
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop focus @e5  # Focus specific list item
+agent-desktop press space  # Select item
+```
+
+### Keyboard Navigation Setup
+
+```bash
+# Focus first field in form
+agent-desktop focus @e2
+
+# Tab to next field
+agent-desktop press tab
+
+# Tab to next field
+agent-desktop press tab
+
+# Type into current (focused) field
+agent-desktop type @e4 "value"
+```
+
+### Focus for Accessibility
+
+```bash
+# Focus element to trigger screen reader announcement
+agent-desktop focus @e10
+agent-desktop wait 500  # Allow screen reader to announce
+```
+
+## Focus vs Click
+
+| Aspect | focus | click |
+|--------|-------|-------|
+| Sets focus | Yes | Yes (as side effect) |
+| Triggers action | No | Yes |
+| Activates button | No | Yes |
+| Opens menu | No | May |
+| Use case | Prepare for input | Activate element |
+
+**Use `focus` when:**
+- Preparing for keyboard input
+- Setting up navigation context
+- Triggering focus events without click
+- Controlling focus ring visibility
+
+**Use `click` when:**
+- Activating buttons, links, menus
+- Triggering element actions
+- Simulating user interaction
+
+## Common Use Cases
+
+- **Form Navigation**: Focus fields before typing
+- **Keyboard Control**: Set focus before sending keys
+- **Accessibility**: Trigger focus-based announcements
+- **List Navigation**: Focus items before using arrow keys
+- **Modal Dialogs**: Focus first input field
+
+## Focus Scope
+
+| Element Type | Focus Behavior |
+|--------------|----------------|
+| Text fields | Cursor appears, ready for input |
+| Buttons | Focus ring appears, pressable with space/return |
+| List items | Selection highlight, navigable with arrows |
+| Links | Focus ring, activatable with return |
+| Tabs | Focus, switchable with arrows |
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element cannot receive focus | Element may not be focusable |
+| `ACTION_NOT_SUPPORTED` | Element type doesn't support focus | Try clicking instead |
+
+## Verifying Focus
+
+To confirm an element has focus:
+
+```bash
+# Set focus
+agent-desktop focus @e5
+
+# Verify focus state
+agent-desktop is @e5 focused
+
+# Or check in snapshot
+agent-desktop snapshot -i | jq '.data.tree'
+```
+
+## Notes
+
+- Focus is automatically set by `type` command
+- Some elements cannot receive focus (static text, containers)
+- Focus may move on app state changes
+- Only one element can have focus at a time per application
+- Focus ring visibility depends on system accessibility settings
+- Use `is @e5 focused` to verify focus state
+- Focus may trigger JavaScript focus events in web views

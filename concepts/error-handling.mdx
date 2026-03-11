@@ -1,0 +1,684 @@
+---
+title: Error Handling
+description: Complete guide to error codes, exit codes, and recovery patterns
+icon: triangle-exclamation
+---
+
+## Overview
+
+agent-desktop provides **structured error responses** with machine-readable codes and actionable recovery suggestions. Every error includes:
+
+- **Code**: `SCREAMING_SNAKE_CASE` identifier for programmatic handling
+- **Message**: Human-readable description with context
+- **Suggestion**: Recommended recovery action (when applicable)
+- **Platform Detail**: OS-specific diagnostic info (when available)
+
+## Error Response Format
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+**Source:** `crates/core/src/output.rs:34`
+
+<Note>
+Errors are returned as **JSON on stdout** with exit code `1`. Parse the JSON to get structured error details.
+</Note>
+
+## Error Codes
+
+### PERM_DENIED
+
+**Cause:** Accessibility permission not granted.
+
+```json
+{
+  "code": "PERM_DENIED",
+  "message": "Accessibility permission not granted",
+  "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal"
+}
+```
+
+**Source:** `crates/core/src/error.rs:119`
+
+**Common triggers:**
+
+- First run of agent-desktop
+- Terminal app not listed in Accessibility preferences
+- Permission revoked after initial grant
+
+**Recovery:**
+
+<Steps>
+  <Step title="Check permission status">
+    ```bash
+    agent-desktop permissions
+    ```
+  </Step>
+  
+  <Step title="Request permission">
+    ```bash
+    agent-desktop permissions --request
+    ```
+    This triggers the macOS system dialog.
+  </Step>
+  
+  <Step title="Manual setup">
+    Open **System Settings → Privacy & Security → Accessibility** and add your terminal app (Terminal.app, iTerm2, etc.).
+  </Step>
+  
+  <Step title="Verify">
+    ```bash
+    agent-desktop snapshot --app Finder -i
+    ```
+    Should now succeed.
+  </Step>
+</Steps>
+
+<Warning>
+Permission changes require **restarting the terminal** for some shells (zsh, bash). Close and reopen your terminal window.
+</Warning>
+
+---
+
+### STALE_REF
+
+**Cause:** Ref is from a previous snapshot and no longer matches current UI.
+
+```json
+{
+  "code": "STALE_REF",
+  "message": "@e7 not found in current RefMap",
+  "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+}
+```
+
+**Source:** `crates/core/src/error.rs:76`
+
+**Common triggers:**
+
+- UI changed after snapshot (window opened, dialog appeared, element moved)
+- Snapshot executed for different app
+- Multiple agents sharing same refmap file
+
+**Recovery pattern:**
+
+```bash
+# Attempt action
+agent-desktop click @e5
+# → STALE_REF
+
+# Re-snapshot to get fresh refs
+agent-desktop snapshot --app Safari -i
+
+# Extract new ref ID for the target element
+# (Agent logic: parse JSON, find element by role/name, get new ref_id)
+
+# Retry with new ref
+agent-desktop click @e3  # Note: ID may have changed
+# → Success
+```
+
+**Prevention:**
+
+- Always snapshot **immediately before** action sequences
+- Re-snapshot after any UI state change (alerts, menus, modals)
+- Never cache refs across workflow steps
+
+---
+
+### ELEMENT_NOT_FOUND
+
+**Cause:** Element could not be located or no longer exists.
+
+```json
+{
+  "code": "ELEMENT_NOT_FOUND",
+  "message": "Element @e3 could not be resolved",
+  "suggestion": "Run 'snapshot' to get fresh refs"
+}
+```
+
+**Source:** `crates/core/src/error.rs:92`
+
+**Difference from `STALE_REF`:**
+
+- `STALE_REF`: Ref exists in refmap but doesn't match live UI
+- `ELEMENT_NOT_FOUND`: Element completely gone (removed, window closed, app quit)
+
+**Recovery:**
+
+<CodeGroup>
+```bash Re-snapshot
+agent-desktop snapshot --app Finder -i
+# Check if element still exists in new tree
+```
+
+```bash Search for element
+agent-desktop find --role button --name "Save" --app TextEdit
+# Verify element is present before retrying
+```
+</CodeGroup>
+
+---
+
+### APP_NOT_FOUND
+
+**Cause:** Application not running or has no windows.
+
+```json
+{
+  "code": "APP_NOT_FOUND",
+  "message": "Application 'Safari' not found or has no windows",
+  "suggestion": "Launch the app first using 'launch Safari'"
+}
+```
+
+**Common triggers:**
+
+- App not launched
+- App running but all windows closed
+- Typo in app name (case-sensitive)
+
+**Recovery:**
+
+```bash
+# Check if app is running
+agent-desktop list-apps
+
+# Launch if not running
+agent-desktop launch Safari --wait
+
+# Verify windows exist
+agent-desktop list-windows --app Safari
+
+# Retry snapshot
+agent-desktop snapshot --app Safari -i
+```
+
+**Name matching rules:**
+
+- Case-sensitive: `"Safari"` ≠ `"safari"`
+- Use app name, not bundle ID (unless using `launch` with bundle ID)
+- Spaces preserved: `"Google Chrome"` not `"GoogleChrome"`
+
+---
+
+### WINDOW_NOT_FOUND
+
+**Cause:** Specified window ID doesn't exist or was closed.
+
+```json
+{
+  "code": "WINDOW_NOT_FOUND",
+  "message": "Window w-4521 not found",
+  "suggestion": "Use 'list-windows' to see available windows"
+}
+```
+
+**Recovery:**
+
+```bash
+# List all windows
+agent-desktop list-windows
+
+# List windows for specific app
+agent-desktop list-windows --app Finder
+
+# Use current window ID
+agent-desktop snapshot --window-id w-9876 -i
+```
+
+---
+
+### ACTION_FAILED
+
+**Cause:** OS rejected the action or accessibility API call failed.
+
+```json
+{
+  "code": "ACTION_FAILED",
+  "message": "Click action failed on @e5",
+  "suggestion": "Element may not support this action. Try 'get @e5 actions' to see available actions",
+  "platform_detail": "AXError -25204: Action not supported"
+}
+```
+
+**Common triggers:**
+
+- Element doesn't support the action (e.g., clicking a label)
+- Element disabled or not interactive
+- Application busy or unresponsive
+- Permission issue for specific action
+
+**Recovery:**
+
+```bash
+# Check available actions
+agent-desktop get @e5 actions
+
+# Verify element is enabled
+agent-desktop get @e5 enabled
+# → {"value": "true"}
+
+# Try alternative action
+agent-desktop focus @e5  # Instead of click
+```
+
+---
+
+### ACTION_NOT_SUPPORTED
+
+**Cause:** Action type not supported by the element or platform.
+
+```json
+{
+  "code": "ACTION_NOT_SUPPORTED",
+  "message": "Toggle action not supported by statictext elements",
+  "suggestion": "This element does not support the requested action"
+}
+```
+
+**Example:**
+
+```bash
+# Invalid: Can't toggle a label
+agent-desktop toggle @e7
+# → ACTION_NOT_SUPPORTED (if @e7 is statictext)
+
+# Valid: Toggle checkbox
+agent-desktop toggle @e9
+# → Success (if @e9 is checkbox)
+```
+
+---
+
+### TIMEOUT
+
+**Cause:** Wait condition not met within timeout period.
+
+```json
+{
+  "code": "TIMEOUT",
+  "message": "Wait condition not met after 5000ms",
+  "suggestion": "The target application may be busy or unresponsive"
+}
+```
+
+**Source:** `crates/core/src/error.rs:100`
+
+**Common triggers:**
+
+- Element never appeared
+- Window took longer than expected to open
+- Application frozen or unresponsive
+
+**Recovery:**
+
+```bash
+# Increase timeout
+agent-desktop wait --element @e5 --timeout 10000
+
+# Check if app is responsive
+agent-desktop list-windows --app Safari
+
+# Force-quit if frozen
+agent-desktop close-app Safari --force
+```
+
+---
+
+### INVALID_ARGS
+
+**Cause:** Invalid argument values or combinations.
+
+```json
+{
+  "code": "INVALID_ARGS",
+  "message": "Invalid key combo: 'invalid-key'",
+  "suggestion": "Use valid key names: cmd, ctrl, alt, shift, return, escape, etc."
+}
+```
+
+**Common triggers:**
+
+- Malformed ref ID (e.g., `e3` instead of `@e3`)
+- Invalid key combo syntax
+- Conflicting flags
+- Out-of-range numeric values
+
+**Examples:**
+
+<CodeGroup>
+```bash Invalid ref
+agent-desktop click e3
+# → INVALID_ARGS: Ref must start with '@'
+```
+
+```bash Invalid key
+agent-desktop press invalid-key
+# → INVALID_ARGS: Unknown key name
+```
+
+```bash Conflicting flags
+agent-desktop snapshot --app Safari --surface menu
+# → INVALID_ARGS: --surface menu requires focused app, not --app flag
+```
+</CodeGroup>
+
+---
+
+### PLATFORM_NOT_SUPPORTED
+
+**Cause:** Feature not available on current platform.
+
+```json
+{
+  "code": "PLATFORM_NOT_SUPPORTED",
+  "message": "screenshot is not supported on this platform",
+  "suggestion": "This platform adapter ships in Phase 2"
+}
+```
+
+**Source:** `crates/core/src/error.rs:84`
+
+**Phase 1:** macOS only  
+**Phase 2:** Windows + Linux support
+
+---
+
+### INTERNAL
+
+**Cause:** Unexpected internal error or assertion failure.
+
+```json
+{
+  "code": "INTERNAL",
+  "message": "RefMap file exceeds 1MB size limit",
+  "suggestion": null
+}
+```
+
+**Source:** `crates/core/src/error.rs:113`
+
+**Common triggers:**
+
+- Corrupted refmap file
+- Filesystem errors
+- JSON serialization failures
+- Null pointer dereferences (shouldn't happen)
+
+**Recovery:**
+
+```bash
+# Clear corrupted refmap
+rm ~/.agent-desktop/last_refmap.json
+
+# Re-snapshot
+agent-desktop snapshot --app Finder -i
+```
+
+If `INTERNAL` errors persist, file a bug report.
+
+---
+
+## Exit Codes
+
+agent-desktop uses three exit codes:
+
+<ResponseField name="0" type="Success">
+  Command succeeded. JSON response has `"ok": true`.
+</ResponseField>
+
+<ResponseField name="1" type="Structured Error">
+  Command failed with structured error. Parse JSON from stdout to get error details.
+</ResponseField>
+
+<ResponseField name="2" type="Argument Parse Error">
+  Invalid command-line arguments. Error message printed to **stderr** (not JSON).
+</ResponseField>
+
+### Exit Code Handling Examples
+
+<CodeGroup>
+```bash Bash
+agent-desktop snapshot --app Finder -i
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+    echo "Success"
+elif [ $exit_code -eq 1 ]; then
+    echo "Structured error - parse JSON"
+elif [ $exit_code -eq 2 ]; then
+    echo "Invalid arguments"
+fi
+```
+
+```python Python
+import subprocess
+import json
+
+result = subprocess.run(
+    ["agent-desktop", "snapshot", "--app", "Finder", "-i"],
+    capture_output=True,
+    text=True
+)
+
+if result.returncode == 0:
+    data = json.loads(result.stdout)
+    print(f"Success: {data['data']['ref_count']} refs")
+elif result.returncode == 1:
+    error = json.loads(result.stdout)["error"]
+    print(f"Error: {error['code']} - {error['message']}")
+elif result.returncode == 2:
+    print(f"Argument error: {result.stderr}")
+```
+
+```javascript JavaScript
+import { execSync } from 'child_process';
+
+try {
+  const output = execSync(
+    'agent-desktop snapshot --app Finder -i',
+    { encoding: 'utf-8' }
+  );
+  const response = JSON.parse(output);
+  console.log(`Success: ${response.data.ref_count} refs`);
+} catch (err) {
+  if (err.status === 1) {
+    const error = JSON.parse(err.stdout).error;
+    console.error(`${error.code}: ${error.message}`);
+  } else if (err.status === 2) {
+    console.error(`Argument error: ${err.stderr}`);
+  }
+}
+```
+</CodeGroup>
+
+## Recovery Patterns
+
+### Pattern 1: Retry with Backoff
+
+For transient errors (`TIMEOUT`, `ACTION_FAILED`):
+
+```python
+import subprocess
+import json
+import time
+
+def retry_action(cmd, max_retries=3, backoff=1.0):
+    for attempt in range(max_retries):
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        
+        error = json.loads(result.stdout).get("error", {})
+        code = error.get("code")
+        
+        if code in ["TIMEOUT", "ACTION_FAILED"] and attempt < max_retries - 1:
+            time.sleep(backoff * (2 ** attempt))  # Exponential backoff
+            continue
+        
+        raise Exception(f"{code}: {error.get('message')}")
+```
+
+### Pattern 2: Re-snapshot on Stale Ref
+
+```python
+def perform_action_with_retry(action_cmd, snapshot_cmd):
+    """Retry action once if ref is stale."""
+    result = subprocess.run(action_cmd, capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        return json.loads(result.stdout)
+    
+    error = json.loads(result.stdout).get("error", {})
+    
+    if error.get("code") == "STALE_REF":
+        # Re-snapshot to get fresh refs
+        subprocess.run(snapshot_cmd, check=True)
+        # Agent must re-parse tree and extract new ref ID here
+        # Then retry action with new ref
+        raise Exception("Re-snapshot required - update ref ID and retry")
+    
+    raise Exception(f"{error.get('code')}: {error.get('message')}")
+```
+
+### Pattern 3: Permission Check Before Operations
+
+```python
+def ensure_permissions():
+    """Verify accessibility permission before running commands."""
+    result = subprocess.run(
+        ["agent-desktop", "permissions"],
+        capture_output=True,
+        text=True
+    )
+    
+    data = json.loads(result.stdout).get("data", {})
+    
+    if not data.get("granted"):
+        print("Accessibility permission required.")
+        print("Run: agent-desktop permissions --request")
+        raise PermissionError("Accessibility not granted")
+```
+
+### Pattern 4: Validate Element Before Action
+
+```python
+def safe_click(ref_id):
+    """Verify element exists and is enabled before clicking."""
+    # Check if element exists
+    result = subprocess.run(
+        ["agent-desktop", "get", ref_id, "enabled"],
+        capture_output=True,
+        text=True
+    )
+    
+    if result.returncode != 0:
+        error = json.loads(result.stdout)["error"]
+        if error["code"] in ["STALE_REF", "ELEMENT_NOT_FOUND"]:
+            raise Exception("Element no longer exists - re-snapshot required")
+    
+    data = json.loads(result.stdout)["data"]
+    if data.get("value") == "false":
+        raise Exception(f"Element {ref_id} is disabled")
+    
+    # Perform click
+    result = subprocess.run(
+        ["agent-desktop", "click", ref_id],
+        capture_output=True,
+        text=True
+    )
+    
+    return json.loads(result.stdout)
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always parse JSON responses">
+    Even on success, parse the JSON to extract `data` fields. Never assume exit code 0 means valid JSON.
+  </Accordion>
+
+  <Accordion title="Check error.code for recovery logic">
+    Use `error.code` for programmatic decisions, not string matching on `error.message`.
+  </Accordion>
+
+  <Accordion title="Show error.suggestion to users">
+    Display the suggestion field when presenting errors to human operators.
+  </Accordion>
+
+  <Accordion title="Log platform_detail for debugging">
+    Include `platform_detail` in diagnostic logs to help debug OS-level issues.
+  </Accordion>
+
+  <Accordion title="Handle STALE_REF gracefully">
+    Treat `STALE_REF` as a **normal flow condition**, not an exceptional error. Re-snapshot and continue.
+  </Accordion>
+
+  <Accordion title="Implement exponential backoff for TIMEOUT">
+    Don't immediately fail on timeout. Retry with increasing delays for transient issues.
+  </Accordion>
+</AccordionGroup>
+
+## Debugging Errors
+
+### Enable Tracing
+
+Set `RUST_LOG` environment variable for detailed logs:
+
+```bash
+RUST_LOG=debug agent-desktop snapshot --app Finder -i
+```
+
+Log output goes to **stderr**, JSON response to **stdout**.
+
+### Check Refmap State
+
+```bash
+cat ~/.agent-desktop/last_refmap.json | jq
+```
+
+Verify stored refs match your expectations.
+
+### Validate Accessibility Tree
+
+Use macOS Accessibility Inspector (Xcode > Open Developer Tool > Accessibility Inspector) to compare agent-desktop output with system view.
+
+## Error Code Reference Table
+
+| Code | Exit | Retry? | Recovery |
+|------|------|--------|----------|
+| `PERM_DENIED` | 1 | No | Grant accessibility permission |
+| `STALE_REF` | 1 | Yes | Re-snapshot, use new ref |
+| `ELEMENT_NOT_FOUND` | 1 | Maybe | Re-snapshot or verify element exists |
+| `APP_NOT_FOUND` | 1 | Yes | Launch app, verify windows |
+| `WINDOW_NOT_FOUND` | 1 | Yes | List windows, use valid ID |
+| `ACTION_FAILED` | 1 | Maybe | Check element state, try alternative action |
+| `ACTION_NOT_SUPPORTED` | 1 | No | Use different action for element type |
+| `TIMEOUT` | 1 | Yes | Increase timeout, check app responsiveness |
+| `INVALID_ARGS` | 1 or 2 | No | Fix command arguments |
+| `PLATFORM_NOT_SUPPORTED` | 1 | No | Wait for Phase 2 or use macOS |
+| `INTERNAL` | 1 | No | Clear state, report bug if persists |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow" icon="arrows-rotate" href="/concepts/workflow">
+    Integrate error handling into the snapshot → decide → act loop
+  </Card>
+  <Card title="Commands Reference" icon="terminal" href="/commands/snapshot">
+    Browse all commands and their error conditions
+  </Card>
+</CardGroup>

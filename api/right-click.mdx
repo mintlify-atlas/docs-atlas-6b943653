@@ -1,0 +1,165 @@
+---
+title: right-click
+description: Right-click element to open context menu
+---
+
+## Overview
+
+Performs a right-click (control-click) on an element to open its context menu. The command returns the menu tree inline after a brief delay, allowing immediate interaction with menu items.
+
+## Syntax
+
+```bash
+agent-desktop right-click <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "right-click",
+  "data": {
+    "action": "right_click",
+    "ref_id": "@e5",
+    "menu": {
+      "role": "menu",
+      "name": "",
+      "children": [
+        {
+          "ref": "@e1",
+          "role": "menuitem",
+          "name": "Cut",
+          "states": ["enabled"]
+        },
+        {
+          "ref": "@e2",
+          "role": "menuitem",
+          "name": "Copy",
+          "states": ["enabled"]
+        },
+        {
+          "ref": "@e3",
+          "role": "menuitem",
+          "name": "Paste",
+          "states": ["enabled"]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`right_click`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was right-clicked
+</ResponseField>
+
+<ResponseField name="menu" type="object" optional>
+  The context menu tree with refs assigned to menu items
+  - `role`: "menu"
+  - `children`: Array of menu item nodes with refs
+</ResponseField>
+
+## AX-First Strategy
+
+The right-click command uses this priority:
+
+1. Try `kAXShowMenuAction` via accessibility
+2. Try control+click via keyboard simulation
+3. Right-click at element center via mouse events
+
+After triggering the menu, the command:
+- Waits 200ms for menu to appear
+- Captures menu snapshot with refs
+- Returns menu tree inline
+
+## Usage Examples
+
+### Right-Click and Select Menu Item
+
+```bash
+# Right-click file in Finder
+agent-desktop snapshot --app Finder -i
+agent-desktop right-click @e8
+
+# Response includes menu tree with refs
+# Click "Get Info" menu item
+agent-desktop click @e4
+```
+
+### Context Menu on Text Selection
+
+```bash
+# Select text in TextEdit
+agent-desktop snapshot --app TextEdit -i
+agent-desktop triple-click @e3
+agent-desktop right-click @e3
+
+# Click "Copy" from context menu
+agent-desktop click @e2
+```
+
+### Desktop Item Context Menu
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "cell" --name "document.pdf"
+agent-desktop right-click @e12
+
+# Menu appears inline in response
+# Select "Open With"
+agent-desktop click @e5
+```
+
+## Menu Interaction Pattern
+
+```bash
+# 1. Right-click element
+RESPONSE=$(agent-desktop right-click @e5)
+
+# 2. Menu refs are in response.data.menu.children[]
+# 3. Click menu item directly
+agent-desktop click @e2
+
+# 4. For submenus, hover to expand
+agent-desktop hover @e3
+agent-desktop wait 200
+agent-desktop snapshot --surface menu
+```
+
+## Common Use Cases
+
+- **File Operations**: Get Info, Rename, Delete in Finder
+- **Text Editing**: Cut, Copy, Paste in text fields
+- **List Items**: Context actions on list/table rows
+- **Desktop**: Application and file management
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support context menu | Element may not have a context menu |
+
+## Notes
+
+- Menu tree is returned inline in the response
+- Menu refs are valid until menu is dismissed
+- Run `snapshot --surface menu` to re-capture menu if needed
+- Some apps show different menus based on selection state
+- Use `wait --menu-closed` to detect when menu is dismissed
+- Clicking outside the menu or pressing escape dismisses it

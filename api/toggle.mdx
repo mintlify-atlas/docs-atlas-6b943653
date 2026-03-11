@@ -1,0 +1,181 @@
+---
+title: toggle
+description: Toggle a checkbox or switch
+---
+
+## Overview
+
+Toggles the state of a checkbox or switch element, flipping it from checked to unchecked or vice versa. This is the action equivalent of clicking a toggle control.
+
+## Syntax
+
+```bash
+agent-desktop toggle <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must be a `checkbox` or `switch`)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "toggle",
+  "data": {
+    "action": "toggle",
+    "ref_id": "@e12",
+    "post_state": {
+      "role": "checkbox",
+      "value": "1",
+      "states": ["enabled", "checked"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`toggle`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was toggled
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after toggling
+  - `role` (string): "checkbox" or "switch"
+  - `value` (string): "0" (unchecked) or "1" (checked)
+  - `states` (string[]): Includes "checked" if checked
+</ResponseField>
+
+## AX-First Strategy
+
+The toggle command:
+
+1. Reads current checked state via `kAXValueAttribute`
+2. Performs `kAXPressAction` to toggle
+3. Verifies state changed
+4. Falls back to click if AX toggle fails
+
+## Usage Examples
+
+### Toggle Checkbox
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role checkbox --name "Enable FileVault"
+agent-desktop toggle @e8
+```
+
+### Toggle Switch
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role checkbox --name "Block pop-ups"
+agent-desktop toggle @e15
+```
+
+### Toggle Multiple Options
+
+```bash
+agent-desktop batch '[
+  {"command": "toggle", "args": {"ref_id": "@e3"}},
+  {"command": "toggle", "args": {"ref_id": "@e5"}},
+  {"command": "toggle", "args": {"ref_id": "@e7"}}
+]'
+```
+
+### Conditional Toggle
+
+```bash
+# Check current state
+STATE=$(agent-desktop is @e8 checked)
+
+# Toggle if not checked
+if [ "$STATE" = "false" ]; then
+  agent-desktop toggle @e8
+fi
+```
+
+## Toggle vs Check/Uncheck
+
+| Command | Behavior | Idempotent |
+|---------|----------|------------|
+| `toggle` | Flips current state | No |
+| `check` | Ensures checked | Yes |
+| `uncheck` | Ensures unchecked | Yes |
+
+**Use `toggle` when:**
+- You want to flip the current state
+- Current state is unknown
+- Simulating user clicking the checkbox
+
+**Use `check`/`uncheck` when:**
+- You need a specific end state
+- Idempotency is required
+- Running the same script multiple times
+
+## Supported Element Types
+
+| Role | Toggle Behavior |
+|------|----------------|
+| `checkbox` | Checked ↔ Unchecked |
+| `switch` | On ↔ Off |
+| `radiobutton` | Select (not recommended, use `click`) |
+
+## State Values
+
+| State | Value | States Array |
+|-------|-------|-------------|
+| Unchecked | "0" | `["enabled"]` |
+| Checked | "1" | `["enabled", "checked"]` |
+| Indeterminate | "2" | `["enabled", "mixed"]` |
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Toggle action not supported | Try `click` instead |
+| `ACTION_NOT_SUPPORTED` | Element is not a checkbox/switch | Wrong element type |
+
+## Verifying Toggle
+
+```bash
+# Check initial state
+agent-desktop is @e12 checked
+# Returns: false
+
+# Toggle
+agent-desktop toggle @e12
+
+# Verify new state
+agent-desktop is @e12 checked
+# Returns: true
+```
+
+## Common Use Cases
+
+- **Settings**: Toggle preferences on/off
+- **Feature Flags**: Enable/disable features
+- **Filters**: Toggle filter options
+- **Permissions**: Grant/revoke permissions
+- **Form Controls**: Toggle form options
+
+## Notes
+
+- Toggle is NOT idempotent; calling twice returns to original state
+- Use `check`/`uncheck` for idempotent operations
+- Some apps may use "switch" role for toggle switches
+- Radio buttons should use `click` instead of `toggle`
+- State is included in `post_state` for verification
+- For tristate checkboxes, toggle cycles through all three states
+- Always verify state after toggle if critical

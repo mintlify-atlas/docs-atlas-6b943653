@@ -1,0 +1,85 @@
+---
+title: "restore"
+description: "Restore a minimized or maximized window to normal state"
+---
+
+## Usage
+
+```bash
+agent-desktop restore [OPTIONS]
+```
+
+## Description
+
+Restores a window to its normal state, reversing minimize or maximize operations. The window is identified by application name (defaults to focused app if not specified).
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — if not specified, operates on the focused application
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "restore",
+  "data": {
+    "restored": true
+  }
+}
+```
+
+## Examples
+
+### Restore focused window
+
+```bash
+agent-desktop restore
+```
+
+### Restore specific app
+
+```bash
+agent-desktop restore --app Safari
+```
+
+### Restore minimized window
+
+```bash
+agent-desktop minimize --app TextEdit
+agent-desktop wait 1000
+agent-desktop restore --app TextEdit
+```
+
+### Restore maximized window
+
+```bash
+agent-desktop maximize --app Finder
+agent-desktop wait 2000
+agent-desktop restore --app Finder
+```
+
+### Restore and verify window bounds
+
+```bash
+agent-desktop restore --app Safari
+agent-desktop list-windows --app Safari | jq '.data[0].bounds'
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not running or has no windows
+- `WINDOW_NOT_FOUND` — No window found for the specified application
+- `ACTION_FAILED` — Failed to restore window
+
+## Notes
+
+- Restores window to the size and position it had before minimize/maximize
+- Can be called on windows that are already in normal state (idempotent)
+- For minimized windows, brings them back from Dock/taskbar
+- For maximized windows, returns them to their previous size
+- On macOS, requires Accessibility permission
+- If multiple windows exist for the app, the first one is restored

@@ -1,0 +1,200 @@
+---
+title: screenshot
+description: Take a PNG screenshot of an application window
+---
+
+Capture a PNG screenshot of an application window or the full screen. Returns the image as base64-encoded data or saves it to a file.
+
+## Usage
+
+```bash
+agent-desktop screenshot [OPTIONS] [PATH]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Filter to a specific application by name (e.g., "Finder", "Safari"). If omitted, captures the full screen.
+</ParamField>
+
+<ParamField path="--window-id" type="string">
+  Filter to a specific window ID from `list-windows` output. Takes precedence over `--app`.
+</ParamField>
+
+<ParamField path="PATH" type="string">
+  Optional file path to save the screenshot. If provided, the image is written to disk instead of being returned as base64.
+</ParamField>
+
+## Response (Base64 Mode)
+
+When no output path is specified, the screenshot is returned as base64-encoded data.
+
+<ResponseField name="data" type="string">
+  Base64-encoded PNG image data.
+</ResponseField>
+
+<ResponseField name="format" type="string">
+  Image format (always `"png"` in Phase 1).
+</ResponseField>
+
+<ResponseField name="width" type="number">
+  Image width in pixels.
+</ResponseField>
+
+<ResponseField name="height" type="number">
+  Image height in pixels.
+</ResponseField>
+
+## Response (File Mode)
+
+When an output path is specified, the image is saved to disk.
+
+<ResponseField name="path" type="string">
+  Absolute path where the screenshot was saved.
+</ResponseField>
+
+## Examples
+
+### Capture Finder window as base64
+
+```bash
+agent-desktop screenshot --app Finder
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "screenshot",
+  "data": {
+    "data": "iVBORw0KGgoAAAANSUhEUgAABa...",
+    "format": "png",
+    "width": 1200,
+    "height": 800
+  }
+}
+```
+
+### Save screenshot to file
+
+```bash
+agent-desktop screenshot --app Safari /tmp/safari.png
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "screenshot",
+  "data": {
+    "path": "/tmp/safari.png"
+  }
+}
+```
+
+### Capture specific window by ID
+
+```bash
+agent-desktop screenshot --window-id w-4521 ~/Desktop/window.png
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "screenshot",
+  "data": {
+    "path": "/Users/username/Desktop/window.png"
+  }
+}
+```
+
+### Full screen capture
+
+```bash
+agent-desktop screenshot /tmp/fullscreen.png
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "screenshot",
+  "data": {
+    "path": "/tmp/fullscreen.png"
+  }
+}
+```
+
+## Error Cases
+
+### Application not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "screenshot",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "No windows found for app 'NonExistentApp'"
+  }
+}
+```
+
+### Window not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "screenshot",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Window 'w-99999' not found"
+  }
+}
+```
+
+### Permission denied
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "screenshot",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Screen recording permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Screen Recording and add your terminal"
+  }
+}
+```
+
+### File write error
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "screenshot",
+  "error": {
+    "code": "INTERNAL",
+    "message": "IO error: Permission denied (os error 13)"
+  }
+}
+```
+
+## Notes
+
+- On **macOS**, capturing screenshots requires **Screen Recording** permission in addition to Accessibility permission.
+- When capturing a specific app, the **frontmost window** of that app is captured.
+- The `--window-id` parameter takes precedence over `--app` if both are specified.
+- If neither `--app` nor `--window-id` is specified, a **full screen** capture is performed.
+- The screenshot is taken using `CGWindowListCreateImage` on macOS.
+- Base64 encoding uses the standard base64 alphabet (RFC 4648).
+
+## See Also
+
+- [snapshot](/api/snapshot) - Capture the accessibility tree
+- [list-windows](/api/list-windows) - List all visible windows

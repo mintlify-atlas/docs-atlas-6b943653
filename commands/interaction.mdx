@@ -1,0 +1,297 @@
+---
+title: Interaction Commands
+description: Commands for clicking, typing, scrolling, and manipulating UI elements
+---
+
+Interaction commands modify UI state by clicking buttons, typing text, toggling checkboxes, scrolling, and more. All interactions use **AX-first strategies** — exhausting accessibility APIs before falling back to mouse events.
+
+## Overview
+
+Every interaction command targets an element by ref (e.g., `@e3`) obtained from a prior `snapshot`. This ensures deterministic, accessibility-native control.
+
+<CardGroup cols={2}>
+  <Card title="click" icon="hand-pointer" href="/api-reference/click">
+    Click element via accessibility press action
+  </Card>
+  <Card title="double-click" icon="hand-pointer" href="/api-reference/double-click">
+    Double-click to open files or select words
+  </Card>
+  <Card title="triple-click" icon="hand-pointer" href="/api-reference/triple-click">
+    Triple-click to select lines or paragraphs
+  </Card>
+  <Card title="right-click" icon="hand-pointer" href="/api-reference/right-click">
+    Right-click to open context menu
+  </Card>
+  <Card title="type" icon="keyboard" href="/api-reference/type">
+    Focus element and type text
+  </Card>
+  <Card title="set-value" icon="pen" href="/api-reference/set-value">
+    Set value directly via accessibility attribute
+  </Card>
+  <Card title="clear" icon="eraser" href="/api-reference/clear">
+    Clear element value to empty string
+  </Card>
+  <Card title="focus" icon="bullseye" href="/api-reference/focus">
+    Set keyboard focus on element
+  </Card>
+  <Card title="select" icon="check" href="/api-reference/select">
+    Select option in dropdown or list
+  </Card>
+  <Card title="toggle" icon="toggle-on" href="/api-reference/toggle">
+    Toggle checkbox or switch
+  </Card>
+  <Card title="check" icon="square-check" href="/api-reference/check">
+    Set checkbox to checked (idempotent)
+  </Card>
+  <Card title="uncheck" icon="square" href="/api-reference/uncheck">
+    Set checkbox to unchecked (idempotent)
+  </Card>
+  <Card title="expand" icon="chevron-down" href="/api-reference/expand">
+    Expand disclosure or tree item
+  </Card>
+  <Card title="collapse" icon="chevron-up" href="/api-reference/collapse">
+    Collapse disclosure or tree item
+  </Card>
+  <Card title="scroll" icon="arrows-up-down" href="/api-reference/scroll">
+    Scroll element in a direction
+  </Card>
+  <Card title="scroll-to" icon="arrow-down-to-line" href="/api-reference/scroll-to">
+    Scroll element into visible area
+  </Card>
+</CardGroup>
+
+## AX-First Philosophy
+
+Every action follows a **15-step accessibility activation chain** before resorting to mouse events:
+
+1. Try `AXPress` action (native click)
+2. Try `AXShowMenu` action (for menu buttons)
+3. Try setting `AXFocused` + synthetic key press
+4. Try `AXPerformAction` with target element
+5. ... (10 more strategies)
+6. Final fallback: mouse click at element center
+
+This ensures compatibility with screen readers, keyboard navigation, and accessibility tools.
+
+## Common Patterns
+
+### Click a Button
+
+```bash
+agent-desktop click @e3
+```
+
+Uses `kAXPressAction` if available. Returns success or falls back to mouse.
+
+### Type Into Text Field
+
+```bash
+agent-desktop type @e5 "hello world"
+```
+
+Focuses the element, then sends key events. Equivalent to a user typing.
+
+### Set Value Directly
+
+For faster input without simulating keystrokes:
+
+```bash
+agent-desktop set-value @e5 "new value"
+```
+
+Sets `kAXValueAttribute` directly. Useful for bulk text replacement.
+
+### Clear Input Field
+
+```bash
+agent-desktop clear @e5
+```
+
+Sets value to empty string. Idempotent.
+
+### Toggle Checkbox
+
+```bash
+agent-desktop toggle @e12
+```
+
+Flips checked state. Use `check` or `uncheck` for idempotent operations:
+
+```bash
+agent-desktop check @e12    # always checked after
+agent-desktop uncheck @e12  # always unchecked after
+```
+
+### Select Dropdown Option
+
+```bash
+agent-desktop select @e9 "Option B"
+```
+
+Finds the option by name and selects it via accessibility APIs.
+
+### Expand/Collapse Disclosure
+
+```bash
+agent-desktop expand @e15
+agent-desktop collapse @e15
+```
+
+Works with disclosure triangles, tree items, accordions.
+
+### Scroll Element
+
+```bash
+agent-desktop scroll @e1 down 3
+agent-desktop scroll @e1 up 1
+```
+
+Uses **10-step AX-first scroll chain** before mouse wheel events.
+
+### Scroll Element Into View
+
+```bash
+agent-desktop scroll-to @e20
+```
+
+Ensures element is visible. Useful before clicking off-screen items.
+
+### Right-Click for Context Menu
+
+```bash
+agent-desktop right-click @e3
+```
+
+Returns the context menu tree inline:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "menu": {
+      "items": [
+        {"ref": "@e1", "name": "Copy"},
+        {"ref": "@e2", "name": "Paste"}
+      ]
+    }
+  }
+}
+```
+
+You can then `click @e1` to select a menu item.
+
+## Examples
+
+```bash
+# Click a button
+agent-desktop click @e3
+
+# Double-click to open a file
+agent-desktop double-click @e3
+
+# Triple-click to select a line
+agent-desktop triple-click @e3
+
+# Right-click to open context menu
+agent-desktop right-click @e3
+
+# Type into a text field
+agent-desktop type @e5 "hello world"
+
+# Set value directly
+agent-desktop set-value @e5 "new value"
+
+# Clear text field
+agent-desktop clear @e5
+
+# Focus element
+agent-desktop focus @e5
+
+# Select dropdown option
+agent-desktop select @e9 "Option B"
+
+# Toggle checkbox
+agent-desktop toggle @e12
+
+# Check checkbox (idempotent)
+agent-desktop check @e12
+
+# Uncheck checkbox (idempotent)
+agent-desktop uncheck @e12
+
+# Expand disclosure
+agent-desktop expand @e15
+
+# Collapse disclosure
+agent-desktop collapse @e15
+
+# Scroll down 3 units
+agent-desktop scroll @e1 down 3
+
+# Scroll element into view
+agent-desktop scroll-to @e20
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Form Automation">
+    Fill out forms using refs from snapshot:
+    
+    ```bash
+    agent-desktop type @e2 "john@example.com"
+    agent-desktop type @e3 "password123"
+    agent-desktop check @e5
+    agent-desktop click @e7
+    ```
+  </Accordion>
+
+  <Accordion title="File Management">
+    Navigate Finder, select files, trigger actions:
+    
+    ```bash
+    agent-desktop click @e3              # select file
+    agent-desktop right-click @e3        # open context menu
+    agent-desktop click @e1              # click "Copy"
+    ```
+  </Accordion>
+
+  <Accordion title="Settings Configuration">
+    Toggle preferences in System Settings:
+    
+    ```bash
+    agent-desktop check @e5              # enable option
+    agent-desktop select @e9 "Dark Mode" # set theme
+    agent-desktop click @e12             # apply
+    ```
+  </Accordion>
+
+  <Accordion title="Text Editing">
+    Manipulate documents in TextEdit or Word:
+    
+    ```bash
+    agent-desktop triple-click @e3       # select paragraph
+    agent-desktop type @e5 "replacement text"
+    agent-desktop press cmd+s            # save
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+Common error codes:
+
+- `STALE_REF`: Element no longer matches the last snapshot. Run `snapshot` to refresh refs.
+- `ACTION_FAILED`: The OS rejected the action (element not actionable, wrong role, etc.)
+- `ELEMENT_NOT_FOUND`: Ref doesn't exist or element was removed
+- `ACTION_NOT_SUPPORTED`: Element doesn't support the requested action
+
+Recovery pattern:
+
+```bash
+agent-desktop click @e3
+# → STALE_REF error
+agent-desktop snapshot -i
+# → get updated refs
+agent-desktop click @e5  # retry with new ref
+```

@@ -1,0 +1,99 @@
+---
+title: "focus-window"
+description: "Bring a window to front and give it keyboard focus"
+---
+
+## Usage
+
+```bash
+agent-desktop focus-window [OPTIONS]
+```
+
+## Description
+
+Brings a window to the front and gives it keyboard focus. Windows can be identified by window ID, application name, or partial title match.
+
+## Parameters
+
+<ParamField path="--window-id" type="string">
+  Window ID from `list-windows` (e.g., "w-4521")
+</ParamField>
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — focuses the first window from this app
+</ParamField>
+
+<ParamField path="--title" type="string">
+  Window title or partial match (e.g., "Settings") — focuses the first matching window
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "focus-window",
+  "data": {
+    "focused": {
+      "id": "w-4521",
+      "title": "Documents",
+      "app_name": "Finder",
+      "pid": 1234,
+      "is_focused": true,
+      "bounds": {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 800.0,
+        "height": 600.0
+      }
+    }
+  }
+}
+```
+
+## Examples
+
+### Focus window by ID
+
+```bash
+agent-desktop focus-window --window-id w-4521
+```
+
+### Focus any window from app
+
+```bash
+agent-desktop focus-window --app Safari
+```
+
+### Focus window by title
+
+```bash
+agent-desktop focus-window --title "System Settings"
+```
+
+### Focus window by partial title match
+
+```bash
+agent-desktop focus-window --title "Untitled"
+```
+
+### Chain focus with snapshot
+
+```bash
+agent-desktop focus-window --app TextEdit
+agent-desktop snapshot -i
+```
+
+## Error Codes
+
+- `WINDOW_NOT_FOUND` — No window matches the specified criteria
+- `INVALID_ARGS` — No identification method provided (must specify `--window-id`, `--app`, or `--title`)
+- `ACTION_FAILED` — Failed to bring window to front
+
+## Notes
+
+- At least one identification parameter is required (`--window-id`, `--app`, or `--title`)
+- If multiple windows match, the first one found is focused
+- On macOS, requires Accessibility permission
+- Use `list-windows` to discover available window IDs and titles

@@ -1,0 +1,189 @@
+---
+title: version
+description: Show agent-desktop version information
+---
+
+Display the agent-desktop version, target architecture, and operating system.
+
+## Usage
+
+```bash
+agent-desktop version [--json]
+```
+
+## Parameters
+
+<ParamField path="--json" type="boolean" optional default="false">
+  Output version information as JSON. Without this flag, the command still returns JSON (all commands return JSON), but this flag is preserved for consistency with other CLI tools.
+  
+  ```bash
+  agent-desktop version --json
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="version" type="string" required>
+  Semantic version string (e.g., `"0.1.0"`)
+</ResponseField>
+
+<ResponseField name="target" type="string" required>
+  CPU architecture (e.g., `"x86_64"`, `"aarch64"`)
+</ResponseField>
+
+<ResponseField name="os" type="string" required>
+  Operating system (e.g., `"macos"`, `"windows"`, `"linux"`)
+</ResponseField>
+
+## Examples
+
+### Show Version
+
+```bash
+agent-desktop version
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "version",
+  "data": {
+    "version": "0.1.0",
+    "target": "aarch64",
+    "os": "macos"
+  }
+}
+```
+</ResponseExample>
+
+### With --json Flag
+
+```bash
+agent-desktop version --json
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "version",
+  "data": {
+    "version": "0.1.0",
+    "target": "aarch64",
+    "os": "macos"
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Version Check in Scripts">
+    Verify agent-desktop version before running commands:
+    
+    ```bash
+    VERSION=$(agent-desktop version | jq -r '.data.version')
+    echo "Using agent-desktop $VERSION"
+    
+    # Check minimum version
+    MIN_VERSION="0.1.0"
+    if [ "$VERSION" \< "$MIN_VERSION" ]; then
+      echo "Error: Requires agent-desktop >= $MIN_VERSION"
+      exit 1
+    fi
+    ```
+  </Accordion>
+
+  <Accordion title="Platform Detection">
+    Detect platform and architecture:
+    
+    ```bash
+    OS=$(agent-desktop version | jq -r '.data.os')
+    ARCH=$(agent-desktop version | jq -r '.data.target')
+    echo "Running on $OS ($ARCH)"
+    ```
+  </Accordion>
+
+  <Accordion title="Bug Reports">
+    Include version information in bug reports:
+    
+    ```bash
+    echo "Environment:"
+    agent-desktop version | jq '.data'
+    ```
+  </Accordion>
+
+  <Accordion title="CI/CD Version Logging">
+    Log version at the start of CI runs:
+    
+    ```yaml
+    # In GitHub Actions
+    - name: Check agent-desktop version
+      run: |
+        agent-desktop version
+        echo "AGENT_DESKTOP_VERSION=$(agent-desktop version | jq -r '.data.version')" >> $GITHUB_ENV
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Version Format
+
+Agent-desktop follows [Semantic Versioning](https://semver.org/):
+
+- **Major version** (X.0.0): Breaking changes
+- **Minor version** (0.X.0): New features, backward compatible
+- **Patch version** (0.0.X): Bug fixes, backward compatible
+
+Example: `0.1.0` means:
+- Pre-1.0 (API may change)
+- First feature release
+- No patches yet
+
+## Target Architectures
+
+Common `target` values:
+
+| Value | Description |
+|-------|-------------|
+| `x86_64` | Intel/AMD 64-bit |
+| `aarch64` | ARM 64-bit (Apple Silicon) |
+| `i686` | Intel/AMD 32-bit (legacy) |
+
+## Operating Systems
+
+Current and planned `os` values:
+
+| Value | Status |
+|-------|--------|
+| `macos` | ✅ Fully supported (Phase 1) |
+| `windows` | 🚧 Planned (Phase 2) |
+| `linux` | 🚧 Planned (Phase 2) |
+
+## Extracting Version Components
+
+```bash
+# Get just the version number
+agent-desktop version | jq -r '.data.version'
+# Output: 0.1.0
+
+# Get major.minor
+agent-desktop version | jq -r '.data.version' | cut -d. -f1-2
+# Output: 0.1
+
+# Get OS
+agent-desktop version | jq -r '.data.os'
+# Output: macos
+
+# Get architecture
+agent-desktop version | jq -r '.data.target'
+# Output: aarch64
+```
+
+## Related Commands
+
+- [status](/api/status) - Show overall system status including version
+- [permissions](/api/permissions) - Check accessibility permission status

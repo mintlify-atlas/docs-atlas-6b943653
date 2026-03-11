@@ -1,0 +1,114 @@
+---
+title: triple-click
+description: Triple-click an element to select line or paragraph
+---
+
+## Overview
+
+Performs a triple-click action on an element. Primarily used to select entire lines or paragraphs in text editors and fields.
+
+## Syntax
+
+```bash
+agent-desktop triple-click <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "triple-click",
+  "data": {
+    "action": "triple_click",
+    "ref_id": "@e6"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`triple_click`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was triple-clicked
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after the action
+</ResponseField>
+
+## AX-First Strategy
+
+The triple-click command follows this hierarchy:
+
+1. Try native triple-click action via AX
+2. Three rapid `kAXPressAction` calls
+3. Mouse triple-click at element center
+
+## Usage Examples
+
+### Select a Line in Text Editor
+
+```bash
+agent-desktop snapshot --app TextEdit -i
+agent-desktop triple-click @e4  # Select entire line
+agent-desktop press cmd+c        # Copy line
+```
+
+### Select Paragraph
+
+```bash
+agent-desktop snapshot --app Notes -i
+agent-desktop triple-click @e3  # Select entire paragraph
+agent-desktop type @e3 "New paragraph text"  # Replace with new text
+```
+
+### Select and Delete Line
+
+```bash
+agent-desktop snapshot --app "Sublime Text" -i
+agent-desktop triple-click @e2
+agent-desktop press delete
+```
+
+## Common Use Cases
+
+- **Text Editing**: Select lines for deletion or replacement
+- **Code Editors**: Select code lines for copying
+- **Document Editing**: Select paragraphs in word processors
+- **Terminal**: Select command lines in terminal apps
+
+## Behavior Differences
+
+| Application Type | Triple-Click Behavior |
+|-----------------|----------------------|
+| Text Editors | Selects entire line including newline |
+| Word Processors | Selects entire paragraph |
+| Terminal | Selects command line |
+| Web Browsers | Selects paragraph (varies by implementation) |
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support triple-click | Try text selection with keyboard shortcuts |
+
+## Notes
+
+- Triple-click selection behavior varies by application
+- Some apps select line, others select paragraph
+- Timing between clicks is platform-optimized
+- Use `double-click` for word selection
+- Always verify selection before performing operations on it

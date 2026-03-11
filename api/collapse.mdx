@@ -1,0 +1,221 @@
+---
+title: collapse
+description: Collapse a disclosure triangle or tree item
+---
+
+## Overview
+
+Collapses an expanded element such as a disclosure triangle, tree item, or accordion section. This hides child elements that were previously visible.
+
+## Syntax
+
+```bash
+agent-desktop collapse <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must support expand/collapse)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "collapse",
+  "data": {
+    "action": "collapse",
+    "ref_id": "@e15",
+    "post_state": {
+      "role": "group",
+      "states": ["enabled"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`collapse`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was collapsed
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after collapse
+  - `role` (string): Element role
+  - `states` (string[]): Does not include "expanded"
+</ResponseField>
+
+## AX-First Strategy
+
+The collapse command:
+
+1. Checks if already collapsed via `kAXValueAttribute` or states
+2. If expanded, performs `kAXPressAction`
+3. Tries clicking disclosure triangle if present
+4. Verifies state changed to collapsed
+
+## Usage Examples
+
+### Collapse Folder in Finder
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "disclosure triangle" --name "Documents"
+agent-desktop collapse @e8
+```
+
+### Collapse Tree Item
+
+```bash
+agent-desktop snapshot --app Xcode -i
+agent-desktop find --role row --name "MyProject"
+agent-desktop collapse @e5
+```
+
+### Collapse Disclosure Section
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role group --name "Advanced"
+agent-desktop collapse @e12
+```
+
+### Collapse Nested Hierarchy
+
+```bash
+# Collapse from deepest to shallowest
+agent-desktop collapse @e12  # Grandchild
+agent-desktop collapse @e8   # Child
+agent-desktop collapse @e5   # Parent
+```
+
+## Supported Element Types
+
+| Role | Collapse Behavior |
+|------|-------------------|
+| `disclosure triangle` | Hides child elements |
+| `row` (with disclosure) | Collapses tree row |
+| `group` | Collapses collapsible group |
+| `outline` | Collapses outline row |
+| `button` (disclosure) | Closes section |
+
+## State Changes
+
+After collapse:
+
+- Element state no longer includes `"expanded"`
+- Child elements hidden from accessibility tree
+- Disclosure triangle icon changes (▼ → ▶)
+- Subsequent snapshot shows fewer children
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element cannot be collapsed | Already collapsed or not collapsible |
+| `ACTION_NOT_SUPPORTED` | Element type doesn't support collapse | Wrong element type |
+
+## Verifying Collapse
+
+```bash
+# Collapse element
+agent-desktop collapse @e15
+
+# Verify collapsed state
+agent-desktop is @e15 expanded
+# Returns: {"ok": true, "data": false}
+
+# Or check in snapshot
+agent-desktop snapshot -i | jq '.data.tree' | grep -A5 '@e15'
+```
+
+## Common Use Cases
+
+- **File Navigation**: Collapse folders in Finder
+- **Tree Views**: Collapse hierarchy in IDEs
+- **Settings**: Hide advanced options
+- **Outlines**: Collapse outline sections
+- **Cleanup**: Reduce visual clutter in sidebars
+
+## Collapse + Snapshot Pattern
+
+```bash
+# Collapse and verify children hidden
+agent-desktop collapse @e8
+agent-desktop wait 200  # Allow animation to complete
+agent-desktop snapshot -i
+
+# Children no longer have refs in new snapshot
+```
+
+## Idempotency
+
+Collapse is typically idempotent:
+
+```bash
+# Collapsing an already-collapsed element succeeds without error
+agent-desktop collapse @e5
+agent-desktop collapse @e5  # No-op if already collapsed
+```
+
+Some implementations may return success immediately if already collapsed.
+
+## Expand vs Collapse
+
+| Command | Behavior | Icon Change | Children |
+|---------|----------|-------------|----------|
+| `expand` | Reveals children | ▶ → ▼ | Visible |
+| `collapse` | Hides children | ▼ → ▶ | Hidden |
+
+## Performance Benefits
+
+Collapsing large trees improves performance:
+
+```bash
+# Before: snapshot of large tree takes 2s
+agent-desktop snapshot --app Xcode -i
+
+# Collapse unused sections
+agent-desktop collapse @e5
+agent-desktop collapse @e8
+agent-desktop collapse @e12
+
+# After: snapshot takes 0.5s
+agent-desktop snapshot -i
+```
+
+## Collapse All Pattern
+
+```bash
+# Collapse all top-level items
+agent-desktop snapshot --app Finder -i
+
+# Find all disclosure triangles
+REFS=$(agent-desktop find --role "disclosure triangle" | jq -r '.data[].ref')
+
+# Collapse each
+for ref in $REFS; do
+  agent-desktop collapse $ref
+done
+```
+
+## Notes
+
+- Collapsed children lose their refs in subsequent snapshots
+- Some apps animate collapse; add `wait` after command
+- Collapsed state persists until expanded or app restart
+- Use `is @ref expanded` to check state before collapsing
+- Collapsing parent automatically collapses children
+- Some disclosure triangles are separate clickable elements
+- Pair with `expand` to manage tree visibility
+- Useful for reducing snapshot size and improving performance

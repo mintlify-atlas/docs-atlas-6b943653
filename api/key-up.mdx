@@ -1,0 +1,236 @@
+---
+title: key-up
+description: Release a held key or modifier
+---
+
+## Syntax
+
+```bash
+agent-desktop key-up <combo>
+```
+
+## Description
+
+Releases a key or modifier that was previously held down with [`key-down`](/api/key-down). This completes the key press sequence and returns the keyboard to its normal state.
+
+Always pair `key-up` calls with corresponding `key-down` calls to avoid leaving modifiers stuck in the pressed state.
+
+## Parameters
+
+<ParamField path="combo" type="string" required>
+  Key or modifier to release. Must match a previously held key from `key-down`. See [Key Combo Format](#key-combo-format) below for syntax.
+</ParamField>
+
+## Key Combo Format
+
+### Single Modifiers
+
+```bash
+agent-desktop key-up shift
+agent-desktop key-up cmd
+agent-desktop key-up ctrl
+agent-desktop key-up alt
+```
+
+### Single Keys
+
+```bash
+agent-desktop key-up space
+agent-desktop key-up return
+agent-desktop key-up a
+```
+
+### Modifier Combinations
+
+```bash
+agent-desktop key-up cmd+shift
+agent-desktop key-up ctrl+alt
+```
+
+### Modifier Aliases
+
+- `cmd`, `command` → Command/Windows key
+- `ctrl`, `control` → Control key
+- `alt`, `option` → Alt/Option key
+- `shift` → Shift key
+
+Keys are case-insensitive:
+
+```bash
+agent-desktop key-up SHIFT    # Same as shift
+agent-desktop key-up Cmd      # Same as cmd
+```
+
+## Response
+
+### Success Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "key-up",
+  "data": {
+    "key_up": "shift"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "key-up",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Unknown modifier: 'super'",
+    "suggestion": "Use cmd, ctrl, alt, or shift as modifiers"
+  }
+}
+```
+
+## Examples
+
+### Release Single Modifier
+
+```bash
+# Hold shift
+agent-desktop key-down shift
+
+# Select multiple items
+agent-desktop click @e5
+agent-desktop click @e8
+
+# Release shift
+agent-desktop key-up shift
+```
+
+### Release Multi-Modifier Combination
+
+```bash
+# Hold cmd+shift
+agent-desktop key-down cmd+shift
+
+# Perform action
+agent-desktop click @e3
+
+# Release both modifiers
+agent-desktop key-up cmd+shift
+```
+
+### Release After Key Hold
+
+```bash
+# Hold space for canvas panning
+agent-desktop key-down space
+
+# Drag while space is held
+agent-desktop drag --from-xy 100,100 --to-xy 400,300
+
+# Release space
+agent-desktop key-up space
+```
+
+### Sequential Release
+
+Releasing keys in sequence after holding them individually:
+
+```bash
+# Hold shift first
+agent-desktop key-down shift
+
+# Then hold cmd
+agent-desktop key-down cmd
+
+# Perform action
+agent-desktop click @e7
+
+# Release in reverse order (good practice)
+agent-desktop key-up cmd
+agent-desktop key-up shift
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_ARGS` | Invalid key format or unknown modifier |
+| `ACTION_FAILED` | OS rejected the key-up event |
+| `PERM_DENIED` | Accessibility permission not granted |
+
+## Notes
+
+- **Always pair with `key-down`**: Calling `key-up` without a prior `key-down` is safe but has no effect
+- Releasing a key that isn't currently held is a no-op (does not cause an error)
+- The command returns immediately after sending the key-up event
+- Modifiers affect all input until released, so call `key-up` promptly
+
+## Best Practices
+
+### Match Your key-down Calls
+
+Release keys in the same format they were pressed:
+
+```bash
+agent-desktop key-down cmd+shift
+agent-desktop key-up cmd+shift     # Correct - releases both
+```
+
+Avoiding mismatched releases:
+
+```bash
+agent-desktop key-down cmd+shift
+agent-desktop key-up cmd           # shift still held!
+agent-desktop key-up shift         # Now shift is released
+```
+
+### Use Error Handling
+
+Ensure `key-up` is called even if an error occurs:
+
+```bash
+# Pseudo-code pattern
+try:
+    agent-desktop key-down shift
+    agent-desktop click @e5        # might fail
+    agent-desktop click @e8
+finally:
+    agent-desktop key-up shift     # always release
+```
+
+### Release Quickly
+
+Don't leave modifiers held longer than necessary, as they affect all system input:
+
+```bash
+# Good: release immediately after use
+agent-desktop key-down shift
+agent-desktop click @e5
+agent-desktop key-up shift
+
+# Bad: long delay with modifier held
+agent-desktop key-down shift
+agent-desktop wait 5000            # shift held for 5 seconds!
+agent-desktop click @e5
+agent-desktop key-up shift
+```
+
+### Cleanup on Exit
+
+If your automation script crashes or exits unexpectedly, manually release stuck keys:
+
+```bash
+# Release common modifiers
+agent-desktop key-up shift
+agent-desktop key-up cmd
+agent-desktop key-up ctrl
+agent-desktop key-up alt
+```
+
+## Related Commands
+
+- [`key-down`](/api/key-down) — Hold a key or modifier down
+- [`press`](/api/press) — Press and release a key combo in one action
+- [`type`](/api/type) — Type text into a specific element

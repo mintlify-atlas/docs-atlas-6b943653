@@ -1,0 +1,117 @@
+---
+title: drag
+description: Drag from one element or point to another
+---
+
+## Syntax
+
+```bash
+agent-desktop drag --from <ref> --to <ref>
+agent-desktop drag --from-xy <x,y> --to-xy <x,y>
+agent-desktop drag --from <ref> --to-xy <x,y>
+```
+
+## Description
+
+Performs a mouse drag operation from a source to a destination. Supports element refs, absolute coordinates, or mixed combinations.
+
+## Parameters
+
+<ParamField path="--from" type="string" optional>
+  Source element reference (e.g., `@e1`). Drags from element center.
+</ParamField>
+
+<ParamField path="--from-xy" type="string" optional>
+  Source coordinates in format `x,y` (e.g., `100,200`).
+</ParamField>
+
+<ParamField path="--to" type="string" optional>
+  Destination element reference (e.g., `@e5`). Drags to element center.
+</ParamField>
+
+<ParamField path="--to-xy" type="string" optional>
+  Destination coordinates in format `x,y` (e.g., `400,200`).
+</ParamField>
+
+<ParamField path="--duration" type="number" optional>
+  Drag duration in milliseconds. Controls how fast the drag animation executes.
+</ParamField>
+
+<Note>
+  You must provide either `--from` or `--from-xy` for the source, and either `--to` or `--to-xy` for the destination.
+</Note>
+
+## Examples
+
+### Drag between elements
+
+```bash
+agent-desktop drag --from @e3 --to @e8
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "drag",
+  "data": {
+    "dragged": true,
+    "from": { "x": 150.0, "y": 220.5 },
+    "to": { "x": 450.0, "y": 380.0 }
+  }
+}
+```
+
+### Drag from element to coordinates
+
+```bash
+agent-desktop drag --from @e5 --to-xy 600,400
+```
+
+Drags an element from its current position to specific screen coordinates.
+
+### Drag with exact coordinates
+
+```bash
+agent-desktop drag --from-xy 100,200 --to-xy 400,200
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "drag",
+  "data": {
+    "dragged": true,
+    "from": { "x": 100.0, "y": 200.0 },
+    "to": { "x": 400.0, "y": 200.0 }
+  }
+}
+```
+
+### Drag with custom duration
+
+```bash
+agent-desktop drag --from @e2 --to @e7 --duration 500
+```
+
+Performs a slower drag over 500 milliseconds.
+
+## Use Cases
+
+- Reorder items in lists or trees
+- Move files between folders in Finder
+- Drag-and-drop UI elements in design tools
+- Resize windows or split panes by dragging dividers
+- Select text by dragging (use coordinates for precision)
+
+## Related Commands
+
+- [hover](/api/hover) - Position cursor before dragging
+- [mouse-down](/api/mouse-down) - Press mouse button
+- [mouse-up](/api/mouse-up) - Release mouse button
+- [mouse-move](/api/mouse-move) - Move cursor during manual drag

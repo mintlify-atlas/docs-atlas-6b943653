@@ -1,0 +1,551 @@
+---
+title: JSON Output
+description: Complete reference for response structure, data types, and serialization
+icon: brackets-curly
+---
+
+## Response Envelope
+
+Every command returns a **structured JSON envelope** with consistent top-level fields:
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": { ... }
+}
+```
+
+### Fields
+
+<ParamField path="version" type="string" required>
+  Protocol version. Currently always `"1.0"`. Future breaking changes will increment the major version.
+</ParamField>
+
+<ParamField path="ok" type="boolean" required>
+  `true` if the command succeeded, `false` if it failed. Determines whether `data` or `error` is present.
+</ParamField>
+
+<ParamField path="command" type="string" required>
+  The command name that was executed (e.g., `"snapshot"`, `"click"`, `"type"`).
+</ParamField>
+
+<ParamField path="data" type="object">
+  Success payload. Structure varies by command. Omitted when `ok: false`.
+</ParamField>
+
+<ParamField path="error" type="object">
+  Error payload. Only present when `ok: false`. See [Error Structure](#error-structure).
+</ParamField>
+
+## Success Responses
+
+### Snapshot
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "Finder",
+    "window": {
+      "id": "w-4521",
+      "title": "Documents"
+    },
+    "ref_count": 14,
+    "tree": {
+      "role": "window",
+      "name": "Documents",
+      "children": [
+        {
+          "ref_id": "@e1",
+          "role": "button",
+          "name": "New Folder",
+          "states": ["enabled"],
+          "bounds": {"x": 20.0, "y": 80.0, "width": 100.0, "height": 32.0}
+        },
+        {
+          "ref_id": "@e2",
+          "role": "textfield",
+          "name": "Search",
+          "value": ""
+        }
+      ]
+    }
+  }
+}
+```
+
+**Source:** `crates/core/src/commands/snapshot.rs:54`
+
+<ResponseField name="data.app" type="string">
+  Application name (e.g., `"Finder"`, `"Safari"`).
+</ResponseField>
+
+<ResponseField name="data.window" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Window identifier (e.g., `"w-4521"`). Use with `--window-id` or `focus-window`.
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Window title visible in title bar.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="data.ref_count" type="integer">
+  Number of interactive elements that received refs. Equals the number of nodes in `tree` with `ref_id` set.
+</ResponseField>
+
+<ResponseField name="data.tree" type="AccessibilityNode">
+  Root node of the accessibility tree. See [AccessibilityNode Type](#accessibilitynode-type).
+</ResponseField>
+
+### Action Commands
+
+All interaction commands (`click`, `type`, `set-value`, `toggle`, etc.) return an `ActionResult`:
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "click",
+  "data": {
+    "action": "click",
+    "ref_id": "@e3",
+    "post_state": {
+      "role": "button",
+      "states": ["enabled", "focused"],
+      "value": null
+    }
+  }
+}
+```
+
+**Source:** `crates/core/src/action.rs:97`
+
+<ResponseField name="data.action" type="string" required>
+  The action performed (e.g., `"click"`, `"type"`, `"toggle"`).
+</ResponseField>
+
+<ResponseField name="data.ref_id" type="string">
+  The ref that was acted upon. Omitted for non-element actions (e.g., `press`, `clipboard-set`).
+</ResponseField>
+
+<ResponseField name="data.post_state" type="ElementState">
+  Element state after the action completed. Includes updated `states`, `value`, and `role`. Omitted if state unchanged.
+</ResponseField>
+
+### List Commands
+
+#### list-windows
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-windows",
+  "data": {
+    "windows": [
+      {
+        "id": "w-4521",
+        "title": "Documents",
+        "app_name": "Finder",
+        "pid": 1234,
+        "bounds": {"x": 100.0, "y": 100.0, "width": 800.0, "height": 600.0},
+        "is_focused": true
+      }
+    ]
+  }
+}
+```
+
+**Source:** `crates/core/src/node.rs:66`
+
+#### list-apps
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-apps",
+  "data": {
+    "apps": [
+      {
+        "name": "Finder",
+        "pid": 1234,
+        "bundle_id": "com.apple.finder"
+      }
+    ]
+  }
+}
+```
+
+**Source:** `crates/core/src/node.rs:78`
+
+### Clipboard Commands
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clipboard-get",
+  "data": {
+    "text": "Hello world"
+  }
+}
+```
+
+### Screenshot Command
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "screenshot",
+  "data": {
+    "format": "png",
+    "base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "width": 1920,
+    "height": 1080
+  }
+}
+```
+
+The `base64` field contains the PNG image data encoded in Base64.
+
+## Error Structure
+
+When `ok: false`, the response includes an `error` object:
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+**Source:** `crates/core/src/output.rs:34`
+
+<ResponseField name="error.code" type="string" required>
+  Machine-readable error code. Always `SCREAMING_SNAKE_CASE`. See [Error Codes](/concepts/error-handling#error-codes).
+</ResponseField>
+
+<ResponseField name="error.message" type="string" required>
+  Human-readable error description. May include context like ref IDs or element names.
+</ResponseField>
+
+<ResponseField name="error.suggestion" type="string">
+  Recommended recovery action. Present for most errors. Examples:
+  - `"Run 'snapshot' to refresh, then retry with updated ref"`
+  - `"Open System Settings > Privacy & Security > Accessibility and add your terminal"`
+</ResponseField>
+
+<ResponseField name="error.platform_detail" type="string">
+  OS-specific error details. Only present when the underlying platform API provides additional context (e.g., macOS AXError codes).
+</ResponseField>
+
+## Core Data Types
+
+### AccessibilityNode Type
+
+```typescript
+interface AccessibilityNode {
+  ref_id?: string;           // Present only for interactive elements
+  role: string;              // "button", "textfield", "window", etc.
+  name?: string;             // Accessibility label
+  value?: string;            // Current value (text fields, sliders, etc.)
+  description?: string;      // AXDescription attribute
+  hint?: string;             // AXHelp or accessibility hint
+  states?: string[];         // ["enabled", "focused", "checked", etc.]
+  bounds?: Rect;             // Present when --include-bounds flag used
+  children?: AccessibilityNode[];  // Nested elements
+}
+```
+
+**Source:** `crates/core/src/node.rs:4`
+
+#### Common Roles
+
+<Tabs>
+  <Tab title="Interactive">
+    These receive refs:
+    - `button`
+    - `textfield`
+    - `checkbox`
+    - `radiobutton`
+    - `link`
+    - `menuitem`
+    - `tab`
+    - `slider`
+    - `combobox`
+    - `switch`
+  </Tab>
+  <Tab title="Structural">
+    No refs (context only):
+    - `window`
+    - `group`
+    - `toolbar`
+    - `statictext`
+    - `label`
+    - `separator`
+    - `scrollbar`
+    - `image`
+  </Tab>
+</Tabs>
+
+#### Common States
+
+- `enabled` / `disabled`
+- `focused`
+- `checked` / `unchecked`
+- `expanded` / `collapsed`
+- `selected`
+- `pressed`
+- `secure` (password fields)
+
+### Rect Type
+
+```json
+{
+  "x": 100.0,
+  "y": 150.0,
+  "width": 200.0,
+  "height": 50.0
+}
+```
+
+**Source:** `crates/core/src/node.rs:33`
+
+Coordinates are in **screen pixels**, origin at top-left of the primary display.
+
+<Note>
+Bounds are **only included** when using the `--include-bounds` flag in `snapshot`. Omitted by default to reduce payload size.
+</Note>
+
+### WindowInfo Type
+
+```typescript
+interface WindowInfo {
+  id: string;                // Window identifier (e.g., "w-4521")
+  title: string;             // Window title
+  app_name: string;          // Application name
+  pid: number;               // Process ID
+  bounds?: Rect;             // Window frame
+  is_focused: boolean;       // True if window has keyboard focus
+}
+```
+
+**Source:** `crates/core/src/node.rs:66`
+
+### AppInfo Type
+
+```typescript
+interface AppInfo {
+  name: string;              // Application name (e.g., "Safari")
+  pid: number;               // Process ID
+  bundle_id?: string;        // macOS bundle ID (e.g., "com.apple.Safari")
+}
+```
+
+**Source:** `crates/core/src/node.rs:78`
+
+### ElementState Type
+
+```typescript
+interface ElementState {
+  role: string;              // "button", "textfield", etc.
+  states?: string[];         // Current states (omitted if empty)
+  value?: string;            // Current value (omitted if null)
+}
+```
+
+**Source:** `crates/core/src/action.rs:106`
+
+Returned in `post_state` field after action commands.
+
+## Serialization Rules
+
+### Omitted Fields
+
+agent-desktop uses aggressive field omission to minimize JSON payload size:
+
+```rust
+#[serde(skip_serializing_if = "Option::is_none")]
+pub name: Option<String>,
+
+#[serde(skip_serializing_if = "Vec::is_empty", default)]
+pub states: Vec<String>,
+```
+
+**Source:** `crates/core/src/node.rs:10`
+
+**Omitted when:**
+
+- `Option<T>` fields: Omitted if `None`
+- `Vec<T>` fields: Omitted if empty
+- `bounds`: Omitted unless `--include-bounds` flag used
+- `post_state`: Omitted if element state unchanged after action
+
+### Example: Minimal vs. Full
+
+**Minimal (no optional fields):**
+
+```json
+{
+  "ref_id": "@e1",
+  "role": "button"
+}
+```
+
+**Full (all fields populated):**
+
+```json
+{
+  "ref_id": "@e1",
+  "role": "button",
+  "name": "Save Document",
+  "description": "Saves the current file",
+  "hint": "Cmd+S",
+  "states": ["enabled", "focused"],
+  "bounds": {"x": 20.0, "y": 80.0, "width": 100.0, "height": 32.0},
+  "children": []
+}
+```
+
+### Floating-Point Handling
+
+Bounds use `f64` with fallback to `0.0` for invalid values:
+
+```rust
+fn f64_or_zero<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+    Option::<f64>::deserialize(deserializer).map(|opt| opt.unwrap_or(0.0))
+}
+```
+
+**Source:** `crates/core/src/node.rs:44`
+
+This handles edge cases where accessibility APIs return `NaN` or `null` coordinates.
+
+## Parsing Examples
+
+### Python
+
+```python
+import json
+import subprocess
+
+result = subprocess.run(
+    ["agent-desktop", "snapshot", "--app", "Finder", "-i"],
+    capture_output=True,
+    text=True
+)
+
+data = json.loads(result.stdout)
+
+if data["ok"]:
+    ref_count = data["data"]["ref_count"]
+    tree = data["data"]["tree"]
+    print(f"Found {ref_count} interactive elements")
+else:
+    error = data["error"]
+    print(f"Error: {error['code']} - {error['message']}")
+    if "suggestion" in error:
+        print(f"Suggestion: {error['suggestion']}")
+```
+
+### JavaScript/TypeScript
+
+```typescript
+import { execSync } from 'child_process';
+
+const output = execSync(
+  'agent-desktop snapshot --app Safari -i',
+  { encoding: 'utf-8' }
+);
+
+const response = JSON.parse(output);
+
+if (response.ok) {
+  const refs = findAllRefs(response.data.tree);
+  console.log(`Found refs: ${refs.join(', ')}`);
+} else {
+  console.error(`${response.error.code}: ${response.error.message}`);
+}
+
+function findAllRefs(node: any): string[] {
+  const refs: string[] = [];
+  if (node.ref_id) refs.push(node.ref_id);
+  if (node.children) {
+    for (const child of node.children) {
+      refs.push(...findAllRefs(child));
+    }
+  }
+  return refs;
+}
+```
+
+### Rust
+
+```rust
+use serde_json::Value;
+use std::process::Command;
+
+let output = Command::new("agent-desktop")
+    .args(["snapshot", "--app", "TextEdit", "-i"])
+    .output()
+    .expect("Failed to execute");
+
+let response: Value = serde_json::from_slice(&output.stdout)
+    .expect("Invalid JSON");
+
+if response["ok"].as_bool().unwrap() {
+    let ref_count = response["data"]["ref_count"].as_u64().unwrap();
+    println!("Ref count: {}", ref_count);
+} else {
+    let error = &response["error"];
+    eprintln!("Error: {} - {}",
+        error["code"].as_str().unwrap(),
+        error["message"].as_str().unwrap()
+    );
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Always check ok field first">
+    Never assume success. Check `response.ok` before accessing `data`.
+  </Step>
+  
+  <Step title="Handle missing optional fields">
+    Use safe navigation: `node.name ?? 'Unnamed'` or `node.get('bounds')`.
+  </Step>
+  
+  <Step title="Parse errors for recovery">
+    Read `error.suggestion` to determine next action (e.g., re-snapshot on `STALE_REF`).
+  </Step>
+  
+  <Step title="Use type definitions">
+    Generate types from JSON Schema (Phase 3 feature) or use examples as reference.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/concepts/error-handling">
+    Complete error code reference and recovery patterns
+  </Card>
+  <Card title="Workflow" icon="arrows-rotate" href="/concepts/workflow">
+    Learn the snapshot → decide → act loop
+  </Card>
+</CardGroup>

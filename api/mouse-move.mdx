@@ -1,0 +1,84 @@
+---
+title: mouse-move
+description: Move cursor to absolute screen coordinates
+---
+
+## Syntax
+
+```bash
+agent-desktop mouse-move --xy <x,y>
+```
+
+## Description
+
+Moves the mouse cursor to absolute screen coordinates. This is a low-level command that operates directly on pixel coordinates without element resolution.
+
+<Tip>
+  For element-based cursor movement, use [hover](/api/hover) instead, which resolves refs to element centers.
+</Tip>
+
+## Parameters
+
+<ParamField path="--xy" type="string" required>
+  Absolute screen coordinates in format `x,y` (e.g., `500,300`). Coordinates are measured from the top-left corner of the primary display.
+</ParamField>
+
+## Examples
+
+### Move to specific coordinates
+
+```bash
+agent-desktop mouse-move --xy 500,300
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "mouse-move",
+  "data": {
+    "moved": true,
+    "x": 500.0,
+    "y": 300.0
+  }
+}
+```
+
+### Move to top-left corner
+
+```bash
+agent-desktop mouse-move --xy 0,0
+```
+
+Moves the cursor to the top-left corner of the primary screen.
+
+### Move to center of 1920x1080 screen
+
+```bash
+agent-desktop mouse-move --xy 960,540
+```
+
+## Use Cases
+
+- Position cursor for custom gestures or patterns
+- Move cursor outside UI elements to clear hover states
+- Precise pixel-level cursor control for drawing applications
+- Navigate to coordinates calculated from element bounds
+- Move cursor away from active areas to prevent interference
+
+## Coordinate System
+
+- Origin `(0,0)` is at the **top-left** corner of the primary display
+- X increases from left to right
+- Y increases from top to bottom
+- Coordinates are in screen pixels
+- Multi-monitor setups extend the coordinate space
+
+## Related Commands
+
+- [hover](/api/hover) - Move to element center or coordinates with ref support
+- [mouse-click](/api/mouse-click) - Click at coordinates
+- [mouse-down](/api/mouse-down) - Press button at coordinates
+- [mouse-up](/api/mouse-up) - Release button at coordinates

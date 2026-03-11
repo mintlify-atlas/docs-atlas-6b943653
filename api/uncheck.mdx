@@ -1,0 +1,200 @@
+---
+title: uncheck
+description: Set checkbox or switch to unchecked state (idempotent)
+---
+
+## Overview
+
+Ensures a checkbox or switch is in the unchecked state. If already unchecked, does nothing. This is an idempotent operation, safe to call multiple times.
+
+## Syntax
+
+```bash
+agent-desktop uncheck <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must be a `checkbox` or `switch`)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "uncheck",
+  "data": {
+    "action": "uncheck",
+    "ref_id": "@e8",
+    "post_state": {
+      "role": "checkbox",
+      "value": "0",
+      "states": ["enabled"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`uncheck`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was unchecked
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after operation
+  - `role` (string): "checkbox" or "switch"
+  - `value` (string): "0" (unchecked)
+  - `states` (string[]): Does not include "checked"
+</ResponseField>
+
+## AX-First Strategy
+
+The uncheck command:
+
+1. Reads current state via `kAXValueAttribute`
+2. If already unchecked (value = 0), returns success without action
+3. If checked (value = 1), performs `kAXPressAction`
+4. Verifies final state is unchecked
+
+## Usage Examples
+
+### Uncheck Checkbox
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role checkbox --name "Show battery percentage"
+agent-desktop uncheck @e12
+```
+
+### Idempotent Uncheck
+
+```bash
+# Safe to run multiple times
+agent-desktop uncheck @e8
+agent-desktop uncheck @e8  # No-op if already unchecked
+agent-desktop uncheck @e8  # Still no-op
+```
+
+### Disable Multiple Options
+
+```bash
+agent-desktop batch '[
+  {"command": "uncheck", "args": {"ref_id": "@e3"}},
+  {"command": "uncheck", "args": {"ref_id": "@e5"}},
+  {"command": "uncheck", "args": {"ref_id": "@e7"}}
+]'
+```
+
+### Reset Form State
+
+```bash
+# Uncheck all options in a form
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role checkbox
+
+# Uncheck each found checkbox
+agent-desktop uncheck @e3
+agent-desktop uncheck @e5
+agent-desktop uncheck @e8
+agent-desktop uncheck @e10
+```
+
+## Uncheck vs Toggle
+
+| Command | Behavior | Idempotent | Use Case |
+|---------|----------|------------|----------|
+| `uncheck` | Ensure unchecked | Yes | Desired end state |
+| `toggle` | Flip state | No | Unknown current state |
+| `check` | Ensure checked | Yes | Desired end state |
+
+**Use `uncheck` when:**
+- You need the checkbox unchecked
+- Idempotency is important
+- Running automation scripts repeatedly
+- Resetting to default state
+
+**Use `toggle` when:**
+- You want to flip whatever the current state is
+- Simulating user clicking
+
+## Supported Element Types
+
+| Role | Uncheck Behavior |
+|------|------------------|
+| `checkbox` | Sets to unchecked |
+| `switch` | Sets to off |
+| `radiobutton` | Cannot uncheck (use different radio) |
+
+## State Verification
+
+```bash
+# Uncheck the checkbox
+agent-desktop uncheck @e8
+
+# Verify it's unchecked
+agent-desktop is @e8 checked
+# Returns: {"ok": true, "data": false}
+
+# Uncheck again (no-op)
+agent-desktop uncheck @e8
+# Still unchecked, no state change
+```
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Cannot set unchecked state | Element may be disabled |
+| `ACTION_NOT_SUPPORTED` | Element is not a checkbox/switch | Wrong element type |
+
+## Common Use Cases
+
+- **Reset Settings**: Disable settings in preferences
+- **Forms**: Clear form checkboxes
+- **Permissions**: Revoke permissions
+- **Feature Flags**: Disable features
+- **Cleanup Scripts**: Reset application state
+
+## Idempotency Benefits
+
+```bash
+# This cleanup script can be run multiple times safely
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop uncheck @e3   # Disable notifications
+agent-desktop uncheck @e5   # Disable analytics
+agent-desktop uncheck @e7   # Disable location services
+agent-desktop click @e10    # Save settings
+```
+
+Even if some options are already unchecked, the script succeeds.
+
+## Radio Button Behavior
+
+Radio buttons cannot be truly "unchecked" once selected:
+
+```bash
+# To "uncheck" a radio button, check a different one
+agent-desktop check @e3  # Select "Option A"
+agent-desktop check @e5  # Select "Option B" (implicitly unchecks @e3)
+```
+
+## Notes
+
+- Uncheck is idempotent; safe to call when already unchecked
+- Returns success immediately if already in unchecked state
+- Pair with `check` for state management
+- Use `is @ref checked` to verify state before or after
+- Radio buttons cannot be unchecked (select different option instead)
+- Some apps may trigger onChange events even on no-op uncheck
+- Always verify critical state changes with `is` command
+- Useful for resetting forms to default state

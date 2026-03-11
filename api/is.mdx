@@ -1,0 +1,237 @@
+---
+title: is
+description: Check element state (visible, enabled, checked, focused, expanded)
+---
+
+Check a boolean state property of an element identified by its ref ID. Returns `true` or `false` based on the element's current state from the last snapshot.
+
+## Usage
+
+```bash
+agent-desktop is <REF> --property <PROPERTY>
+```
+
+## Parameters
+
+<ParamField path="REF" type="string" required>
+  Element reference ID from a previous snapshot (e.g., `@e1`, `@e2`, `@e14`).
+</ParamField>
+
+<ParamField path="--property" type="enum" default="visible">
+  State property to check.
+  
+  **Options:**
+  - `visible` - Element is visible (not hidden)
+  - `enabled` - Element is enabled (not disabled)
+  - `checked` - Element is checked (checkboxes, radio buttons, toggles)
+  - `focused` - Element has keyboard focus
+  - `expanded` - Element is expanded (disclosure triangles, tree items, comboboxes)
+</ParamField>
+
+## Response
+
+<ResponseField name="property" type="string">
+  Name of the state property that was checked.
+</ResponseField>
+
+<ResponseField name="ref" type="string">
+  Reference ID that was queried.
+</ResponseField>
+
+<ResponseField name="result" type="boolean">
+  Whether the state is true or false.
+</ResponseField>
+
+<ResponseField name="applicable" type="boolean">
+  Whether this state property is applicable to the element's role. For example, `checked` is only applicable to checkboxes, radio buttons, and toggles.
+</ResponseField>
+
+## Examples
+
+### Check if button is enabled
+
+```bash
+agent-desktop is @e3 --property enabled
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "enabled",
+    "ref": "@e3",
+    "result": true,
+    "applicable": true
+  }
+}
+```
+
+### Check if checkbox is checked
+
+```bash
+agent-desktop is @e7 --property checked
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "checked",
+    "ref": "@e7",
+    "result": true,
+    "applicable": true
+  }
+}
+```
+
+### Check if element is visible (default)
+
+```bash
+agent-desktop is @e12
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "visible",
+    "ref": "@e12",
+    "result": true,
+    "applicable": true
+  }
+}
+```
+
+### Check if element is focused
+
+```bash
+agent-desktop is @e5 --property focused
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "focused",
+    "ref": "@e5",
+    "result": false,
+    "applicable": true
+  }
+}
+```
+
+### Check if disclosure is expanded
+
+```bash
+agent-desktop is @e9 --property expanded
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "expanded",
+    "ref": "@e9",
+    "result": true,
+    "applicable": true
+  }
+}
+```
+
+### Check inapplicable state
+
+```bash
+agent-desktop is @e3 --property checked
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "is",
+  "data": {
+    "property": "checked",
+    "ref": "@e3",
+    "result": false,
+    "applicable": false
+  }
+}
+```
+
+## Error Cases
+
+### Stale ref
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "is",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+### Element not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "is",
+  "error": {
+    "code": "ELEMENT_NOT_FOUND",
+    "message": "Element @e99 could not be resolved",
+    "suggestion": "Run 'snapshot' to get fresh refs"
+  }
+}
+```
+
+## State Logic
+
+### visible
+Returns `false` if the element has the `hidden` state, otherwise `true`.
+- **Applicable to:** All elements
+
+### enabled
+Returns `false` if the element has the `disabled` state, otherwise `true`.
+- **Applicable to:** All elements
+
+### checked
+Returns `true` if the element has the `checked` state, otherwise `false`.
+- **Applicable to:** `checkbox`, `switch`, `radiobutton`, `togglebutton`, `menuitemcheckbox`, `menuitemradio`
+
+### focused
+Returns `true` if the element has the `focused` state, otherwise `false`.
+- **Applicable to:** All elements
+
+### expanded
+Returns `true` if the element has the `expanded` state, otherwise `false`.
+- **Applicable to:** `disclosuretriangle`, `treeitem`, `combobox`, `popupbutton`, `outline`, `row`
+
+## Notes
+
+- States are read from the **last snapshot's RefMap**, not re-queried from the accessibility API.
+- The command uses **optimistic re-identification** to verify the element still exists, but the state values themselves are from the cached snapshot.
+- To ensure fresh state information, run `snapshot` before calling `is`.
+- The `applicable` field indicates whether the property makes sense for the element's role. For example, `checked` is not applicable to buttons.
+- If a state is not applicable, `result` will be `false` but `applicable` will also be `false`.
+
+## See Also
+
+- [get](/api/get) - Read other element properties
+- [snapshot](/api/snapshot) - Capture fresh state information
+- [find](/api/find) - Search for elements

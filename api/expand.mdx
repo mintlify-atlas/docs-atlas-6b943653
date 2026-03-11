@@ -1,0 +1,199 @@
+---
+title: expand
+description: Expand a disclosure triangle or tree item
+---
+
+## Overview
+
+Expands a collapsible element such as a disclosure triangle, tree item, or accordion section. This reveals child elements that were previously hidden.
+
+## Syntax
+
+```bash
+agent-desktop expand <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must support expand/collapse)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "expand",
+  "data": {
+    "action": "expand",
+    "ref_id": "@e15",
+    "post_state": {
+      "role": "group",
+      "states": ["enabled", "expanded"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`expand`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was expanded
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after expansion
+  - `role` (string): Element role
+  - `states` (string[]): Includes "expanded"
+</ResponseField>
+
+## AX-First Strategy
+
+The expand command:
+
+1. Checks if already expanded via `kAXValueAttribute` or states
+2. If collapsed, performs `kAXPressAction`
+3. Tries clicking disclosure triangle if present
+4. Verifies state changed to expanded
+
+## Usage Examples
+
+### Expand Folder in Finder
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "disclosure triangle" --name "Documents"
+agent-desktop expand @e8
+agent-desktop wait 200
+agent-desktop snapshot -i  # See expanded children
+```
+
+### Expand Tree Item
+
+```bash
+agent-desktop snapshot --app Xcode -i
+agent-desktop find --role row --name "MyProject"
+agent-desktop expand @e5
+```
+
+### Expand Disclosure Section
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role group --name "Advanced"
+agent-desktop expand @e12
+```
+
+### Expand Nested Hierarchy
+
+```bash
+# Expand parent
+agent-desktop expand @e5
+agent-desktop wait 200
+agent-desktop snapshot -i
+
+# Expand child
+agent-desktop expand @e8
+agent-desktop wait 200
+agent-desktop snapshot -i
+
+# Expand grandchild
+agent-desktop expand @e12
+```
+
+## Supported Element Types
+
+| Role | Expand Behavior |
+|------|----------------|
+| `disclosure triangle` | Reveals child elements |
+| `row` (with disclosure) | Expands tree row |
+| `group` | Expands collapsible group |
+| `outline` | Expands outline row |
+| `button` (disclosure) | Opens section |
+
+## State Changes
+
+After expansion:
+
+- Element state includes `"expanded"`
+- Child elements become visible in accessibility tree
+- Disclosure triangle icon changes (▶ → ▼)
+- Subsequent snapshot shows newly visible children
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element cannot be expanded | Already expanded or not expandable |
+| `ACTION_NOT_SUPPORTED` | Element type doesn't support expand | Wrong element type |
+
+## Verifying Expansion
+
+```bash
+# Expand element
+agent-desktop expand @e15
+
+# Verify expanded state
+agent-desktop is @e15 expanded
+# Returns: {"ok": true, "data": true}
+
+# Or check in snapshot
+agent-desktop snapshot -i | jq '.data.tree' | grep -A5 '@e15'
+```
+
+## Common Use Cases
+
+- **File Navigation**: Expand folders in Finder
+- **Tree Views**: Expand hierarchy in IDEs and file browsers
+- **Settings**: Reveal advanced options
+- **Outlines**: Expand outline sections
+- **Sidebars**: Open sidebar categories
+
+## Expand + Snapshot Pattern
+
+```bash
+# Common pattern: expand and capture new children
+agent-desktop expand @e8
+agent-desktop wait 200  # Allow animation to complete
+agent-desktop snapshot -i
+
+# Now children are visible with refs
+agent-desktop click @e12  # Interact with child
+```
+
+## Idempotency
+
+Expand is typically idempotent:
+
+```bash
+# Expanding an already-expanded element succeeds without error
+agent-desktop expand @e5
+agent-desktop expand @e5  # No-op if already expanded
+```
+
+Some implementations may return success immediately if already expanded.
+
+## Expand vs Collapse
+
+| Command | Behavior | Icon Change |
+|---------|----------|-------------|
+| `expand` | Reveals children | ▶ → ▼ |
+| `collapse` | Hides children | ▼ → ▶ |
+
+## Notes
+
+- Always snapshot after expand to capture newly visible children
+- Some apps animate expansion; add `wait` after expand
+- Expanded state persists until collapsed or app restart
+- Use `is @ref expanded` to check state before expanding
+- Some disclosure triangles are separate clickable elements
+- Expanding large trees may be slow; consider timeout
+- Pair with `collapse` to manage tree visibility

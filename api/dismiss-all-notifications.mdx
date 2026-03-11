@@ -1,0 +1,202 @@
+---
+title: dismiss-all-notifications
+description: Dismiss all notifications from Notification Center
+---
+
+Dismiss all notifications currently in the Notification Center, with an optional filter to target notifications from a specific app.
+
+## Usage
+
+```bash
+agent-desktop dismiss-all-notifications [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string" optional>
+  Only dismiss notifications from this application. If omitted, all notifications are dismissed.
+  
+  ```bash
+  agent-desktop dismiss-all-notifications --app Slack
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="dismissed_count" type="number" required>
+  Number of notifications successfully dismissed
+</ResponseField>
+
+<ResponseField name="failures" type="array" optional>
+  Array of error messages for notifications that failed to dismiss. Omitted if all dismissals succeeded.
+  
+  <Expandable title="failure object">
+    <ResponseField name="index" type="number">
+      The 0-based index of the notification that failed
+    </ResponseField>
+    
+    <ResponseField name="error" type="string">
+      Error message describing why the dismissal failed
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="failed_count" type="number" optional>
+  Number of notifications that failed to dismiss. Only present if failures occurred.
+</ResponseField>
+
+## Examples
+
+### Dismiss All Notifications
+
+```bash
+agent-desktop dismiss-all-notifications
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-all-notifications",
+  "data": {
+    "dismissed_count": 5
+  }
+}
+```
+</ResponseExample>
+
+### Dismiss All from Specific App
+
+```bash
+agent-desktop dismiss-all-notifications --app Slack
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-all-notifications",
+  "data": {
+    "dismissed_count": 3
+  }
+}
+```
+</ResponseExample>
+
+### With Partial Failures
+
+If some notifications fail to dismiss, the response includes failure details:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-all-notifications",
+  "data": {
+    "dismissed_count": 4,
+    "failures": [
+      {
+        "index": 2,
+        "error": "Notification already dismissed"
+      }
+    ],
+    "failed_count": 1
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Clear All Notifications">
+    Clean up all notifications at once:
+    
+    ```bash
+    agent-desktop dismiss-all-notifications
+    ```
+    
+    Useful for maintaining a clean notification center or before screenshots/demos.
+  </Accordion>
+
+  <Accordion title="Clear Notifications from One App">
+    Dismiss all notifications from a specific app while keeping others:
+    
+    ```bash
+    agent-desktop dismiss-all-notifications --app Slack
+    agent-desktop dismiss-all-notifications --app Messages
+    ```
+  </Accordion>
+
+  <Accordion title="Scheduled Cleanup">
+    Run periodically to prevent notification buildup:
+    
+    ```bash
+    # In a cron job or automation script
+    agent-desktop dismiss-all-notifications
+    ```
+  </Accordion>
+
+  <Accordion title="Focus Mode">
+    Clear distractions before starting focused work:
+    
+    ```bash
+    # Clear notifications and mute communication apps
+    agent-desktop dismiss-all-notifications
+    agent-desktop close-app Slack
+    agent-desktop close-app Messages
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Behavior
+
+- Dismissals are attempted in order from first to last notification
+- If some notifications fail to dismiss, the command continues with remaining notifications
+- The command returns success (`"ok": true`) even if some dismissals fail; check the `failures` field for details
+- Notifications dismissed successfully are removed immediately and won't appear in subsequent `list-notifications` calls
+
+## Error Handling
+
+Common error codes:
+
+- `PERM_DENIED`: macOS accessibility permission not granted
+- `APP_NOT_FOUND`: Specified app has no notifications
+
+Partial failures are reported in the response data, not as top-level errors:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-all-notifications",
+  "data": {
+    "dismissed_count": 2,
+    "failures": [
+      {
+        "index": 0,
+        "error": "Element no longer exists"
+      }
+    ],
+    "failed_count": 1
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- This is a bulk operation; use `dismiss-notification` for selective dismissal
+- The `--app` filter is case-sensitive and must match the app name exactly as shown in `list-notifications`
+- Notifications are dismissed sequentially, not in parallel
+- The command does not require `list-notifications` to be called first
+
+## Related Commands
+
+- [list-notifications](/api/list-notifications) - List all notifications before dismissing
+- [dismiss-notification](/api/dismiss-notification) - Dismiss a single notification by index
+- [notification-action](/api/notification-action) - Interact with notification action buttons

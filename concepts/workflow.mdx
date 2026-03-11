@@ -1,0 +1,268 @@
+---
+title: Agent Workflow
+description: Understanding the snapshot → decide → act loop pattern for desktop automation
+icon: arrows-rotate
+---
+
+## Overview
+
+agent-desktop is designed around a **deterministic observation-action loop** that AI agents execute to control desktop applications. The workflow separates observation (reading UI state) from action (modifying UI state), enabling agents to make informed decisions at each step.
+
+```text
+Agent loop:  snapshot → decide → act → snapshot → decide → act → ...
+```
+
+This architecture ensures agents always work with fresh UI state and can recover from failures by re-observing before retrying.
+
+## The Three-Phase Cycle
+
+### 1. Snapshot (Observe)
+
+Capture the current accessibility tree and generate **refs** for all interactive elements:
+
+```bash
+agent-desktop snapshot --app Finder -i
+```
+
+<Accordion title="Example snapshot output">
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "Finder",
+    "window": {
+      "id": "w-4521",
+      "title": "Documents"
+    },
+    "ref_count": 14,
+    "tree": {
+      "role": "window",
+      "name": "Documents",
+      "children": [
+        {
+          "ref_id": "@e1",
+          "role": "button",
+          "name": "New Folder",
+          "states": ["enabled"]
+        },
+        {
+          "ref_id": "@e2",
+          "role": "textfield",
+          "name": "Search",
+          "value": ""
+        }
+      ]
+    }
+  }
+}
+```
+</Accordion>
+
+Each interactive element receives a **ref** (`@e1`, `@e2`, etc.) that can be used to target actions. Static elements (labels, groups) appear for context but receive no ref.
+
+### 2. Decide (Agent Logic)
+
+The AI agent analyzes the snapshot JSON and determines the next action based on:
+
+- Current UI state (element roles, names, values, states)
+- Task objective (e.g., "Open quarterly report document")
+- Available refs for interactive elements
+
+<Note>
+Decision logic lives **outside agent-desktop**. The tool provides structured data; agents interpret it using LLMs or rule-based systems.
+</Note>
+
+### 3. Act (Execute)
+
+Perform the chosen action using a ref from the previous snapshot:
+
+```bash
+agent-desktop click @e3
+agent-desktop type @e5 "quarterly report"
+agent-desktop press cmd+s
+```
+
+Actions are **AX-first**: agent-desktop exhausts accessibility API strategies before falling back to mouse/keyboard synthesis. This makes automation more reliable and compatible with assistive technologies.
+
+## Why Refs Are Critical
+
+### Determinism
+
+Refs provide **stable identifiers** within a snapshot session:
+
+```bash
+# Snapshot assigns refs
+agent-desktop snapshot --app TextEdit -i
+# → @e1 = "Save" button, @e2 = text area
+
+# Agent can reliably reference elements
+agent-desktop type @e2 "Hello world"
+agent-desktop click @e1
+```
+
+Without refs, agents would need to re-query the accessibility tree for every action using fragile selectors ("find button named 'Save'"), which breaks when UI changes mid-session.
+
+### Performance
+
+Refs avoid expensive tree traversals. Action commands use **optimistic re-identification** to locate elements instantly:
+
+1. Load ref metadata from `~/.agent-desktop/last_refmap.json`
+2. Match element by `(pid, role, name, bounds_hash)`
+3. Return `STALE_REF` error if element changed
+
+This is 10-100x faster than searching the entire tree.
+
+## Handling UI Changes
+
+### Stale Refs
+
+Refs become **stale** when the UI changes after the snapshot:
+
+- New window opened
+- Dialog appeared/dismissed
+- Element moved or removed
+- Application restarted
+
+When an action encounters a stale ref:
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+The recovery pattern is always the same:
+
+```text
+snapshot → act → STALE_REF? → snapshot again → retry
+```
+
+### Example Recovery Flow
+
+```bash
+# Initial snapshot
+agent-desktop snapshot --app Safari -i
+# → @e5 = address bar
+
+# Try to type URL
+agent-desktop type @e5 "github.com"
+# → STALE_REF (user clicked something, UI changed)
+
+# Re-snapshot to get fresh refs
+agent-desktop snapshot --app Safari -i
+# → @e3 = address bar (ref ID changed because tree structure changed)
+
+# Retry with new ref
+agent-desktop type @e3 "github.com"
+# → Success
+```
+
+<Warning>
+Agents must **never cache or reuse refs across snapshots**. Each snapshot replaces the refmap entirely.
+</Warning>
+
+## Optimization: Interactive-Only Mode
+
+Use the `-i` / `--interactive-only` flag to reduce snapshot size:
+
+```bash
+agent-desktop snapshot --app Xcode -i
+```
+
+**Without `-i`:** Tree includes all elements (labels, groups, separators, containers) → 5000+ nodes  
+**With `-i`:** Tree includes only interactive elements with refs → 200-300 nodes
+
+This dramatically reduces:
+
+- Snapshot execution time (300ms → 50ms for complex apps)
+- JSON payload size (500KB → 50KB)
+- LLM token consumption (fewer nodes to analyze)
+
+**Always use `-i` unless you need full structural context.**
+
+## Batch Execution
+
+For multi-step sequences, use the `batch` command to execute actions atomically:
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e2"}},
+  {"command": "type", "args": {"ref_id": "@e5", "text": "hello"}},
+  {"command": "press", "args": {"combo": "return"}}
+]' --stop-on-error
+```
+
+Batch mode:
+
+- Executes commands sequentially
+- Stops on first error if `--stop-on-error` is set
+- Returns array of results
+- **Does not automatically re-snapshot between actions**
+
+<Note>
+Batch is useful for **deterministic sequences** where you know refs won't change. For dynamic scenarios, prefer separate commands with snapshot validation between steps.
+</Note>
+
+## Complete Workflow Example
+
+```bash
+# 1. Observe: Get current UI state
+agent-desktop snapshot --app Finder -i
+# Analyze JSON → decide to create new folder
+
+# 2. Act: Click "New Folder" button
+agent-desktop click @e8
+
+# 3. Observe: Re-snapshot to see new state (folder name input appeared)
+agent-desktop snapshot --app Finder -i
+
+# 4. Act: Type folder name
+agent-desktop type @e12 "Project Files"
+
+# 5. Act: Confirm
+agent-desktop press return
+
+# 6. Observe: Verify folder created
+agent-desktop snapshot --app Finder -i
+# Check tree for "Project Files" folder element
+```
+
+## Key Takeaways
+
+<AccordionGroup>
+  <Accordion title="Snapshots create fresh refs">
+    Every `snapshot` command replaces the refmap entirely. Old refs become invalid.
+  </Accordion>
+
+  <Accordion title="Refs are session-scoped">
+    Refs are valid until the next snapshot. Don't cache them across observations.
+  </Accordion>
+
+  <Accordion title="Always handle STALE_REF">
+    The correct recovery is: snapshot → retry. Never skip re-observation.
+  </Accordion>
+
+  <Accordion title="Use -i for efficiency">
+    Interactive-only mode is the default recommendation for agent workflows.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Ref System" icon="hashtag" href="/concepts/refs">
+    Deep dive into ref allocation and resolution
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/concepts/error-handling">
+    Learn recovery patterns for all error codes
+  </Card>
+</CardGroup>

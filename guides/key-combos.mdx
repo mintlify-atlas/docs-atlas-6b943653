@@ -1,0 +1,161 @@
+---
+title: "Key Combinations"
+description: "Syntax and examples for keyboard shortcuts and key combinations"
+---
+
+## Overview
+
+The `press` command sends keyboard shortcuts to applications using a simple, readable syntax for key combinations.
+
+```bash
+agent-desktop press <COMBO> [--app <NAME>]
+```
+
+## Syntax
+
+Key combinations use `+` to join modifiers and keys:
+
+```
+modifier+modifier+key
+```
+
+### Modifiers
+
+- `cmd` - Command key (macOS) / Super key (Linux)
+- `ctrl` - Control key
+- `shift` - Shift key
+- `alt` / `option` - Alt/Option key
+
+### Single Keys
+
+Common keys can be referenced by name:
+
+- `return` / `enter`
+- `escape` / `esc`
+- `tab`
+- `space`
+- `delete` / `backspace`
+- `up`, `down`, `left`, `right` (arrow keys)
+- `home`, `end`, `pageup`, `pagedown`
+- Function keys: `f1`, `f2`, ... `f12`
+
+Alphanumeric keys use their literal character: `a`, `b`, `1`, `2`, etc.
+
+## Examples
+
+### Single Key
+
+```bash
+agent-desktop press return
+agent-desktop press escape
+agent-desktop press tab
+```
+
+### Single Modifier + Key
+
+```bash
+agent-desktop press cmd+s       # Save
+agent-desktop press cmd+c       # Copy
+agent-desktop press cmd+v       # Paste
+agent-desktop press ctrl+a      # Select all (some apps)
+```
+
+### Multiple Modifiers
+
+```bash
+agent-desktop press cmd+shift+z      # Redo
+agent-desktop press cmd+shift+n      # New private window
+agent-desktop press cmd+alt+esc      # Force quit dialog (macOS)
+agent-desktop press ctrl+shift+t     # Reopen closed tab
+```
+
+### Application-Targeted Shortcuts
+
+Focus an app before sending the shortcut:
+
+```bash
+agent-desktop press cmd+s --app TextEdit
+agent-desktop press cmd+t --app Safari
+```
+
+This ensures the shortcut reaches the correct application even if it's not currently focused.
+
+## Common Shortcuts by Function
+
+### File Operations
+
+```bash
+agent-desktop press cmd+n       # New
+agent-desktop press cmd+o       # Open
+agent-desktop press cmd+s       # Save
+agent-desktop press cmd+shift+s # Save As
+agent-desktop press cmd+p       # Print
+agent-desktop press cmd+w       # Close window
+agent-desktop press cmd+q       # Quit app
+```
+
+### Editing
+
+```bash
+agent-desktop press cmd+z       # Undo
+agent-desktop press cmd+shift+z # Redo
+agent-desktop press cmd+x       # Cut
+agent-desktop press cmd+c       # Copy
+agent-desktop press cmd+v       # Paste
+agent-desktop press cmd+a       # Select all
+```
+
+### Navigation
+
+```bash
+agent-desktop press cmd+tab     # Switch apps
+agent-desktop press cmd+`       # Switch windows (same app)
+agent-desktop press cmd+left    # Move cursor to line start
+agent-desktop press cmd+right   # Move cursor to line end
+agent-desktop press cmd+up      # Move cursor to document start
+agent-desktop press cmd+down    # Move cursor to document end
+```
+
+### Browser
+
+```bash
+agent-desktop press cmd+t       # New tab
+agent-desktop press cmd+w       # Close tab
+agent-desktop press cmd+shift+t # Reopen closed tab
+agent-desktop press cmd+l       # Focus address bar
+agent-desktop press cmd+r       # Reload page
+agent-desktop press cmd+shift+r # Hard reload
+```
+
+## Advanced Usage
+
+### Hold and Release Keys
+
+For precise control over key timing, use `key-down` and `key-up`:
+
+```bash
+agent-desktop key-down shift
+agent-desktop press right
+agent-desktop press right
+agent-desktop key-up shift
+```
+
+This selects two characters by holding shift while pressing the right arrow twice.
+
+### Combining with Other Commands
+
+Key combos work well in workflows:
+
+```bash
+# Open save dialog, type filename, save
+agent-desktop press cmd+s --app TextEdit
+agent-desktop wait --window "Save" --timeout 5000
+agent-desktop type @e1 "quarterly-report.txt"
+agent-desktop press return
+```
+
+## Related Commands
+
+- [key-down](/commands/keyboard/key-down) - Hold a key or modifier
+- [key-up](/commands/keyboard/key-up) - Release a held key or modifier
+- [type](/commands/interaction/type) - Type text into an element

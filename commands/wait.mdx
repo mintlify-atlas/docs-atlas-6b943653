@@ -1,0 +1,183 @@
+---
+title: Wait Commands
+description: Commands for pausing execution or waiting for UI conditions
+---
+
+Wait commands pause execution for a specified duration or block until a UI condition is met (element appears, window opens, text is visible).
+
+## Overview
+
+<CardGroup cols={1}>
+  <Card title="wait" icon="clock" href="/api-reference/wait">
+    Wait for time, element, window, text, or menu to appear
+  </Card>
+</CardGroup>
+
+## Wait Modes
+
+The `wait` command supports multiple modes:
+
+1. **Time-based**: Sleep for N milliseconds
+2. **Element-based**: Wait for element ref to appear
+3. **Window-based**: Wait for window with title to appear
+4. **Text-based**: Wait for text to appear in app
+5. **Menu-based**: Wait for menu to open
+
+## Common Patterns
+
+### Wait for Fixed Duration
+
+```bash
+agent-desktop wait 500
+```
+
+Pauses for 500 milliseconds.
+
+### Wait for Element to Appear
+
+```bash
+agent-desktop wait --element @e3 --timeout 5000
+```
+
+Blocks until element `@e3` is present in the accessibility tree, or 5000ms elapses.
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "found": true,
+    "elapsed_ms": 1234
+  }
+}
+```
+
+Or on timeout:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "TIMEOUT",
+    "message": "Element @e3 did not appear within 5000ms"
+  }
+}
+```
+
+### Wait for Window to Appear
+
+```bash
+agent-desktop wait --window "Save" --timeout 10000
+```
+
+Blocks until a window with title containing "Save" appears.
+
+### Wait for Text to Appear
+
+```bash
+agent-desktop wait --text "Loading complete" --app Safari --timeout 5000
+```
+
+Polls Safari's accessibility tree for the text "Loading complete".
+
+### Wait for Menu to Open
+
+```bash
+agent-desktop wait --menu --timeout 3000
+```
+
+Blocks until a menu surface is visible.
+
+## Examples
+
+```bash
+# Wait 500ms
+agent-desktop wait 500
+
+# Wait for element to appear
+agent-desktop wait --element @e3 --timeout 5000
+
+# Wait for window to appear
+agent-desktop wait --window "Save" --timeout 10000
+
+# Wait for text to appear in app
+agent-desktop wait --text "Loading complete" --app Safari --timeout 5000
+
+# Wait for menu to open
+agent-desktop wait --menu --timeout 3000
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="UI Synchronization">
+    Wait for UI to settle after actions:
+    
+    ```bash
+    agent-desktop click @e3
+    agent-desktop wait 200
+    agent-desktop snapshot -i
+    ```
+  </Accordion>
+
+  <Accordion title="Async Operations">
+    Wait for loading indicators to disappear:
+    
+    ```bash
+    agent-desktop click @e5
+    agent-desktop wait --text "Loading complete" --timeout 10000
+    ```
+  </Accordion>
+
+  <Accordion title="Dialog Handling">
+    Wait for dialogs or sheets to appear:
+    
+    ```bash
+    agent-desktop press cmd+s
+    agent-desktop wait --window "Save" --timeout 5000
+    agent-desktop snapshot --surface sheet -i
+    agent-desktop type @e2 "document.txt"
+    agent-desktop click @e5
+    ```
+  </Accordion>
+
+  <Accordion title="Menu Navigation">
+    Wait for menus to open before capturing:
+    
+    ```bash
+    agent-desktop right-click @e3
+    agent-desktop wait --menu --timeout 1000
+    agent-desktop snapshot --surface menu -i
+    agent-desktop click @e1
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Polling Behavior
+
+For condition-based waits (element, window, text, menu), the command polls every **100ms** until:
+
+- Condition is met → returns `{"found": true}`
+- Timeout expires → returns `TIMEOUT` error
+
+Default timeout: **5000ms** (5 seconds). Always specify `--timeout` for longer operations.
+
+## Timeout Values
+
+Recommended timeouts:
+
+- **UI settle**: 200-500ms
+- **Dialog appearance**: 1000-3000ms
+- **Loading indicator**: 5000-10000ms
+- **App launch**: 10000-15000ms (use `launch` command instead)
+
+## Error Handling
+
+Common error codes:
+
+- `TIMEOUT`: Condition not met within timeout period
+- `ELEMENT_NOT_FOUND`: Ref doesn't exist (for `--element` mode)
+- `INVALID_ARGS`: Malformed timeout or missing required flag
+
+All commands return structured JSON with error codes and recovery hints.

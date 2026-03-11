@@ -1,0 +1,98 @@
+---
+title: hover
+description: Move cursor to element center or absolute screen coordinates
+---
+
+## Syntax
+
+```bash
+agent-desktop hover <ref>
+agent-desktop hover --xy <x,y>
+```
+
+## Description
+
+Moves the mouse cursor to the center of an element (by ref) or to absolute screen coordinates. Does not perform a click.
+
+## Parameters
+
+<ParamField path="ref" type="string" optional>
+  Element reference from snapshot (e.g., `@e1`, `@e2`). If provided, cursor moves to element center.
+</ParamField>
+
+<ParamField path="--xy" type="string" optional>
+  Absolute screen coordinates in format `x,y` (e.g., `500,300`). If provided, cursor moves to exact coordinates.
+</ParamField>
+
+<ParamField path="--duration" type="number" optional>
+  Hold the hover position for N milliseconds after moving. Useful for triggering hover effects.
+</ParamField>
+
+<Note>
+  You must provide either a `ref` **or** `--xy`, but not both.
+</Note>
+
+## Examples
+
+### Hover over an element by ref
+
+```bash
+agent-desktop hover @e7
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "hover",
+  "data": {
+    "hovered": true,
+    "x": 425.5,
+    "y": 312.0
+  }
+}
+```
+
+### Hover at specific coordinates
+
+```bash
+agent-desktop hover --xy 500,300
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "hover",
+  "data": {
+    "hovered": true,
+    "x": 500.0,
+    "y": 300.0
+  }
+}
+```
+
+### Hover with duration
+
+```bash
+agent-desktop hover @e3 --duration 1500
+```
+
+Holds the cursor position for 1.5 seconds, allowing hover tooltips or effects to appear.
+
+## Use Cases
+
+- Trigger hover effects before clicking
+- Display tooltips or contextual information
+- Position cursor for subsequent drag operations
+- Simulate user cursor movement for UI state changes
+
+## Related Commands
+
+- [mouse-move](/api/mouse-move) - Move cursor without ref resolution
+- [drag](/api/drag) - Drag from one point to another
+- [click](/api/click) - Click element via accessibility API

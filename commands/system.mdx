@@ -1,0 +1,199 @@
+---
+title: System Commands
+description: Commands for checking status, permissions, and version information
+---
+
+System commands provide metadata about the platform, permission state, and tool version. Use these for health checks and diagnostics.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="status" icon="heartbeat" href="/api-reference/status">
+    Show adapter health, platform, and permission state
+  </Card>
+  <Card title="permissions" icon="lock" href="/api-reference/permissions">
+    Check accessibility permission (--request to prompt)
+  </Card>
+  <Card title="version" icon="code-branch" href="/api-reference/version">
+    Show version string (--json for machine-readable)
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Check System Status
+
+```bash
+agent-desktop status
+```
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "platform": "macos",
+    "version": "1.0.0",
+    "permission": "granted",
+    "adapter": "healthy"
+  }
+}
+```
+
+### Check Accessibility Permission
+
+```bash
+agent-desktop permissions
+```
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "granted"
+  }
+}
+```
+
+Possible statuses:
+
+- `granted`: Permission is enabled
+- `denied`: Permission not granted (actions will fail)
+- `unknown`: Platform doesn't support permission checks
+
+### Request Permission
+
+```bash
+agent-desktop permissions --request
+```
+
+Triggers the system permission dialog. User must manually grant access in **System Settings > Privacy & Security > Accessibility**.
+
+On macOS, you must add your terminal app (Terminal.app, iTerm2, VS Code, etc.) to the Accessibility list.
+
+### Get Version
+
+```bash
+agent-desktop version
+```
+
+Returns:
+
+```bash
+1.0.0
+```
+
+Or with `--json`:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "version": "1.0.0"
+  }
+}
+```
+
+## Examples
+
+```bash
+# Check system status
+agent-desktop status
+
+# Check accessibility permission
+agent-desktop permissions
+
+# Request accessibility permission
+agent-desktop permissions --request
+
+# Get version
+agent-desktop version
+
+# Get version as JSON
+agent-desktop version --json
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Pre-Flight Checks">
+    Verify permissions before running automation:
+    
+    ```bash
+    agent-desktop permissions
+    # If denied, show error and exit
+    agent-desktop snapshot --app Finder -i
+    ```
+  </Accordion>
+
+  <Accordion title="Diagnostics">
+    Gather system info for bug reports:
+    
+    ```bash
+    agent-desktop status
+    agent-desktop version --json
+    # Include output in issue report
+    ```
+  </Accordion>
+
+  <Accordion title="CI/CD Health Checks">
+    Verify environment before test runs:
+    
+    ```bash
+    agent-desktop status
+    # Assert platform == "macos"
+    # Assert permission == "granted"
+    ```
+  </Accordion>
+
+  <Accordion title="Version Compatibility">
+    Ensure CLI version meets requirements:
+    
+    ```bash
+    agent-desktop version --json
+    # Parse version and compare to minimum required
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Permission Errors
+
+If accessibility permission is not granted, most commands fail with:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+  }
+}
+```
+
+Recovery steps:
+
+1. Run `agent-desktop permissions --request`
+2. Open **System Settings > Privacy & Security > Accessibility**
+3. Click the lock icon and authenticate
+4. Add your terminal app to the list
+5. Restart your terminal
+6. Run `agent-desktop permissions` to verify
+
+## Platform Support
+
+Current platform: **macOS**
+
+Future platforms:
+
+- **Windows** (Phase 2)
+- **Linux** (Phase 2)
+
+The `status` command will indicate the active platform.
+
+## Error Handling
+
+All system commands return structured JSON with error codes and recovery hints.

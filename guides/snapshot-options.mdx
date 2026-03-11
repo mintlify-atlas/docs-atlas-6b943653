@@ -1,0 +1,161 @@
+---
+title: "Snapshot Options"
+description: "Configure snapshot behavior with flags to control tree depth, filtering, and output format"
+---
+
+## Overview
+
+The `snapshot` command captures the accessibility tree of an application with configurable options to control what elements are included and how the tree is structured.
+
+```bash
+agent-desktop snapshot [OPTIONS]
+```
+
+## Available Options
+
+<ParamField path="--app" type="string">
+  Filter to a specific application by name
+  
+  **Default:** focused app
+  
+  ```bash
+  agent-desktop snapshot --app Safari
+  ```
+</ParamField>
+
+<ParamField path="--window-id" type="string">
+  Filter to a specific window by ID (from `list-windows`)
+  
+  ```bash
+  agent-desktop snapshot --window-id w-4521
+  ```
+</ParamField>
+
+<ParamField path="-i / --interactive-only" type="boolean">
+  Only include interactive elements in the tree
+  
+  **Default:** `false`
+  
+  Interactive elements include: buttons, text fields, checkboxes, links, menu items, tabs, sliders, combo boxes, tree items, cells, radio buttons, and switches.
+  
+  ```bash
+  agent-desktop snapshot --app Finder -i
+  ```
+</ParamField>
+
+<ParamField path="--compact" type="boolean">
+  Omit empty structural nodes to reduce tree size
+  
+  **Default:** `false`
+  
+  Collapses single-child unnamed nodes to reduce tree depth without losing interactive elements.
+  
+  ```bash
+  agent-desktop snapshot --compact
+  ```
+</ParamField>
+
+<ParamField path="--include-bounds" type="boolean">
+  Include pixel bounds (x, y, width, height) for each element
+  
+  **Default:** `false`
+  
+  ```bash
+  agent-desktop snapshot --include-bounds
+  ```
+</ParamField>
+
+<ParamField path="--max-depth" type="number">
+  Maximum tree depth to traverse
+  
+  **Default:** `10`
+  
+  Limits how deep the accessibility tree traversal will go. Lower values improve performance for complex UIs.
+  
+  ```bash
+  agent-desktop snapshot --max-depth 5
+  ```
+</ParamField>
+
+<ParamField path="--surface" type="enum">
+  Type of UI surface to snapshot
+  
+  **Default:** `window`
+  
+  **Options:** `window`, `focused`, `menu`, `menubar`, `sheet`, `popover`, `alert`
+  
+  ```bash
+  agent-desktop snapshot --surface menu
+  ```
+</ParamField>
+
+## Common Patterns
+
+### AI Agent Workflow
+
+For optimal LLM performance, use interactive-only mode to reduce tree size:
+
+```bash
+agent-desktop snapshot --app Finder -i
+```
+
+### Capture Open Menu
+
+Snapshot the currently open context menu or dropdown:
+
+```bash
+agent-desktop snapshot --surface menu
+```
+
+### Focused Application
+
+Snapshot the currently focused app without specifying the name:
+
+```bash
+agent-desktop snapshot -i
+```
+
+### Performance Optimization
+
+For large applications, combine flags to minimize output:
+
+```bash
+agent-desktop snapshot --app Xcode -i --compact --max-depth 8
+```
+
+## Output Format
+
+All snapshots return structured JSON with element refs:
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "Finder",
+    "window": {
+      "id": "w-4521",
+      "title": "Documents"
+    },
+    "ref_count": 14,
+    "tree": {
+      "role": "window",
+      "name": "Documents",
+      "children": [
+        {
+          "ref": "@e1",
+          "role": "button",
+          "name": "Back"
+        }
+      ]
+    }
+  }
+}
+```
+
+## Related Commands
+
+- [find](/commands/observation/find) - Search for elements matching criteria
+- [list-surfaces](/commands/observation/list-surfaces) - List available UI surfaces
+- [screenshot](/commands/observation/screenshot) - Capture visual screenshot

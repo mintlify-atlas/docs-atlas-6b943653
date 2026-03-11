@@ -1,0 +1,223 @@
+---
+title: notification-action
+description: Click an action button on a notification
+---
+
+Click an action button (e.g., "Reply", "Open", "Snooze") on a notification in the Notification Center.
+
+## Usage
+
+```bash
+agent-desktop notification-action <INDEX> <ACTION>
+```
+
+## Parameters
+
+<ParamField path="INDEX" type="number" required>
+  1-based notification index from list-notifications. Must be >= 1.
+  
+  **Note:** While `list-notifications` returns 0-based indices, this command accepts 1-based indices for user convenience.
+  
+  ```bash
+  agent-desktop notification-action 1 Reply
+  ```
+</ParamField>
+
+<ParamField path="ACTION" type="string" required>
+  Name of the action button to click. Must match one of the action names in the notification's `actions` array from `list-notifications`.
+  
+  Common action names:
+  - `Reply`
+  - `Open`
+  - `Snooze`
+  - `Mark as Read`
+  - `Dismiss`
+  
+  ```bash
+  agent-desktop notification-action 1 Open
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="action" type="string" required>
+  The name of the action that was clicked
+</ResponseField>
+
+## Examples
+
+### Click Reply Action
+
+```bash
+# First, list notifications to see available actions
+agent-desktop list-notifications
+
+# Click the Reply button on the first notification
+agent-desktop notification-action 1 Reply
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "notification-action",
+  "data": {
+    "action": "Reply"
+  }
+}
+```
+</ResponseExample>
+
+### Open Notification
+
+```bash
+agent-desktop notification-action 2 Open
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "notification-action",
+  "data": {
+    "action": "Open"
+  }
+}
+```
+</ResponseExample>
+
+## Workflow
+
+<Steps>
+  <Step title="List notifications">
+    Run `list-notifications` to see notifications and their available actions:
+    
+    ```bash
+    agent-desktop list-notifications
+    ```
+    
+    Example output:
+    ```json
+    {
+      "notifications": [
+        {
+          "index": 0,
+          "app_name": "Messages",
+          "title": "New message from John",
+          "actions": ["Reply", "Open"]
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Note the index and action">
+    Identify the notification index (add 1 for 1-based) and the action name you want to trigger.
+  </Step>
+  
+  <Step title="Click the action">
+    Use the index + 1 and action name:
+    
+    ```bash
+    agent-desktop notification-action 1 Reply
+    ```
+  </Step>
+</Steps>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Quick Reply to Messages">
+    Reply to Messages notifications directly from the CLI:
+    
+    ```bash
+    agent-desktop list-notifications --app Messages
+    agent-desktop notification-action 1 Reply
+    # This opens the Messages reply field
+    ```
+  </Accordion>
+
+  <Accordion title="Open App from Notification">
+    Open the app associated with a notification:
+    
+    ```bash
+    agent-desktop notification-action 1 Open
+    ```
+    
+    This brings the app to the foreground and navigates to the relevant content.
+  </Accordion>
+
+  <Accordion title="Snooze Reminders">
+    Snooze Calendar or Reminders notifications:
+    
+    ```bash
+    agent-desktop notification-action 1 Snooze
+    ```
+  </Accordion>
+
+  <Accordion title="Automated Notification Handling">
+    Automatically respond to specific notifications:
+    
+    ```bash
+    # In a script
+    NOTIF=$(agent-desktop list-notifications --text "deployment complete" | jq -r '.data.notifications[0]')
+    INDEX=$(echo $NOTIF | jq -r '.index + 1')
+    agent-desktop notification-action $INDEX Open
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Action Availability
+
+Not all notifications have action buttons. Check the `actions` array in the notification object from `list-notifications`:
+
+```bash
+agent-desktop list-notifications | jq '.data.notifications[] | select(.actions | length > 0)'
+```
+
+Common apps with action buttons:
+- **Messages**: Reply, Open
+- **Mail**: Reply, Delete, Mark as Read
+- **Calendar**: Snooze, Open
+- **Slack**: Reply, Open, Mark as Read
+- **Reminders**: Complete, Snooze
+
+## Error Handling
+
+Common error codes:
+
+- `ELEMENT_NOT_FOUND`: Index out of range or notification already dismissed
+- `ACTION_NOT_SUPPORTED`: Action name not found in notification's actions array
+- `INVALID_ARGS`: Index is 0 or negative, or action name is empty
+- `ACTION_FAILED`: The action button exists but clicking it failed
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "notification-action",
+  "error": {
+    "code": "ACTION_NOT_SUPPORTED",
+    "message": "Action 'Delete' not available on this notification",
+    "suggestion": "Run 'list-notifications' to see available actions for this notification"
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- The command uses **1-based indexing** for user convenience
+- Action names are case-sensitive and must match exactly
+- After clicking an action, the notification may be dismissed automatically (depends on the app)
+- Some actions (like "Open") will bring the source app to the foreground
+- The action is performed via macOS accessibility APIs, so accessibility permission is required
+
+## Related Commands
+
+- [list-notifications](/api/list-notifications) - List notifications to see available actions
+- [dismiss-notification](/api/dismiss-notification) - Dismiss a notification without clicking an action
+- [wait](/api/wait) - Wait for a new notification before acting on it

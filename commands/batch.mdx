@@ -1,0 +1,195 @@
+---
+title: Batch Commands
+description: Execute multiple commands in sequence from a JSON array
+---
+
+The `batch` command executes multiple commands in a single invocation. This reduces overhead and enables atomic workflows.
+
+## Overview
+
+<CardGroup cols={1}>
+  <Card title="batch" icon="layer-group" href="/api-reference/batch">
+    Execute multiple commands from a JSON array
+  </Card>
+</CardGroup>
+
+## Batch Format
+
+Pass a JSON array of command objects:
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e2"}},
+  {"command": "type", "args": {"ref_id": "@e5", "text": "hello"}},
+  {"command": "press", "args": {"combo": "return"}}
+]'
+```
+
+Each command object has:
+
+- `command`: Command name (e.g., `click`, `type`, `press`)
+- `args`: Arguments as a JSON object
+
+## Common Patterns
+
+### Stop on First Error
+
+```bash
+agent-desktop batch '[...commands...]' --stop-on-error
+```
+
+If any command fails, execution stops and returns the error.
+
+### Continue on Errors
+
+```bash
+agent-desktop batch '[...commands...]'
+```
+
+Without `--stop-on-error`, all commands execute regardless of failures. The response includes success/failure for each.
+
+## Examples
+
+### Fill Out Form
+
+```bash
+agent-desktop batch '[
+  {"command": "type", "args": {"ref_id": "@e2", "text": "john@example.com"}},
+  {"command": "type", "args": {"ref_id": "@e3", "text": "password123"}},
+  {"command": "check", "args": {"ref_id": "@e5"}},
+  {"command": "click", "args": {"ref_id": "@e7"}}
+]' --stop-on-error
+```
+
+### Multi-Step Workflow
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e3"}},
+  {"command": "wait", "args": {"ms": 200}},
+  {"command": "type", "args": {"ref_id": "@e5", "text": "quarterly report"}},
+  {"command": "press", "args": {"combo": "cmd+s"}}
+]' --stop-on-error
+```
+
+### Bulk Actions
+
+```bash
+agent-desktop batch '[
+  {"command": "check", "args": {"ref_id": "@e2"}},
+  {"command": "check", "args": {"ref_id": "@e5"}},
+  {"command": "check", "args": {"ref_id": "@e8"}},
+  {"command": "click", "args": {"ref_id": "@e10"}}
+]'
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Atomic Workflows">
+    Execute multi-step actions with rollback on failure:
+    
+    ```bash
+    agent-desktop batch '[
+      {"command": "click", "args": {"ref_id": "@e1"}},
+      {"command": "type", "args": {"ref_id": "@e3", "text": "data"}},
+      {"command": "press", "args": {"combo": "cmd+s"}}
+    ]' --stop-on-error
+    ```
+    
+    If any step fails, execution stops immediately.
+  </Accordion>
+
+  <Accordion title="Reduce Latency">
+    Batch commands to minimize round-trip overhead:
+    
+    ```bash
+    # Instead of 4 separate invocations:
+    agent-desktop click @e2
+    agent-desktop type @e5 "text"
+    agent-desktop press return
+    agent-desktop wait 500
+    
+    # Use one batch:
+    agent-desktop batch '[...]'
+    ```
+  </Accordion>
+
+  <Accordion title="Conditional Execution">
+    Generate batch JSON dynamically based on conditions:
+    
+    ```bash
+    commands='[{"command": "click", "args": {"ref_id": "@e2"}}]'
+    if [ $CONDITION ]; then
+      commands='[{"command": "click", "args": {"ref_id": "@e5"}}]'
+    fi
+    agent-desktop batch "$commands"
+    ```
+  </Accordion>
+
+  <Accordion title="Scripted Automation">
+    Build complex workflows in scripts:
+    
+    ```bash
+    #!/bin/bash
+    agent-desktop snapshot --app Finder -i > tree.json
+    # Parse tree, build batch commands
+    agent-desktop batch "$(cat commands.json)" --stop-on-error
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Response Format
+
+With `--stop-on-error`, returns the first error:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "STALE_REF",
+    "message": "Element at @e7 no longer matches the last snapshot",
+    "command_index": 2
+  }
+}
+```
+
+Without `--stop-on-error`, returns all results:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "results": [
+      {"ok": true, "command": "click"},
+      {"ok": true, "command": "type"},
+      {"ok": false, "command": "press", "error": {...}}
+    ]
+  }
+}
+```
+
+## Supported Commands
+
+All commands except `batch` itself can be batched:
+
+- Observation: `snapshot`, `find`, `screenshot`, `get`, `is`, `list-surfaces`
+- Interaction: `click`, `type`, `set-value`, `clear`, `focus`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll`, `scroll-to`
+- Keyboard: `press`, `key-down`, `key-up`
+- Mouse: `hover`, `drag`, `mouse-move`, `mouse-click`, `mouse-down`, `mouse-up`
+- App/Window: `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `resize-window`, `move-window`, `minimize`, `maximize`, `restore`
+- Clipboard: `clipboard-get`, `clipboard-set`, `clipboard-clear`
+- Wait: `wait`
+- System: `status`, `permissions`, `version`
+
+## Error Handling
+
+Common error codes:
+
+- `INVALID_ARGS`: Malformed JSON or unrecognized command
+- `STALE_REF`: Ref from previous snapshot (run `snapshot` to refresh)
+- `ACTION_FAILED`: OS rejected an action
+
+With `--stop-on-error`, the response includes `command_index` to identify which command failed.
+
+All commands return structured JSON with error codes and recovery hints.

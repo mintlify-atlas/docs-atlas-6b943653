@@ -1,0 +1,230 @@
+---
+title: Keyboard Commands
+description: Commands for sending key presses, key combos, and modifier holds
+---
+
+Keyboard commands let you send key presses, shortcuts (like `cmd+c`), and hold/release modifiers. These work at the application level, not the element level.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="press" icon="keyboard" href="/api-reference/press">
+    Send key combo (return, escape, cmd+s, shift+tab)
+  </Card>
+  <Card title="key-down" icon="down" href="/api-reference/key-down">
+    Hold a key or modifier down
+  </Card>
+  <Card title="key-up" icon="up" href="/api-reference/key-up">
+    Release a held key or modifier
+  </Card>
+</CardGroup>
+
+## Key Syntax
+
+### Single Keys
+
+```bash
+agent-desktop press return
+agent-desktop press escape
+agent-desktop press tab
+agent-desktop press space
+agent-desktop press delete
+```
+
+Arrow keys:
+
+```bash
+agent-desktop press up
+agent-desktop press down
+agent-desktop press left
+agent-desktop press right
+```
+
+Function keys:
+
+```bash
+agent-desktop press f1
+agent-desktop press f12
+```
+
+### Key Combos with Modifiers
+
+Use `+` to combine modifiers with keys:
+
+```bash
+agent-desktop press cmd+s
+agent-desktop press cmd+c
+agent-desktop press cmd+v
+agent-desktop press cmd+z
+agent-desktop press cmd+shift+z
+agent-desktop press ctrl+a
+agent-desktop press shift+tab
+```
+
+Modifiers: `cmd`, `ctrl`, `alt`, `shift`
+
+### Multi-Modifier Combos
+
+```bash
+agent-desktop press cmd+shift+z   # redo
+agent-desktop press cmd+alt+esc   # force quit dialog
+agent-desktop press ctrl+shift+eject  # lock screen
+```
+
+## Common Patterns
+
+### Save Current Document
+
+```bash
+agent-desktop press cmd+s
+```
+
+### Copy/Paste
+
+```bash
+agent-desktop press cmd+c
+agent-desktop press cmd+v
+```
+
+### Undo/Redo
+
+```bash
+agent-desktop press cmd+z        # undo
+agent-desktop press cmd+shift+z  # redo
+```
+
+### Navigate Dialogs
+
+```bash
+agent-desktop press tab          # next field
+agent-desktop press shift+tab    # previous field
+agent-desktop press return       # default button
+agent-desktop press escape       # cancel
+```
+
+### Hold Modifier for Multi-Selection
+
+```bash
+agent-desktop key-down shift
+agent-desktop click @e3
+agent-desktop click @e5
+agent-desktop key-up shift
+```
+
+This selects multiple items in a list.
+
+### Spotlight Search
+
+```bash
+agent-desktop press cmd+space
+agent-desktop wait 200
+agent-desktop type @e1 "TextEdit"
+agent-desktop press return
+```
+
+## Examples
+
+```bash
+# Press single key
+agent-desktop press return
+agent-desktop press escape
+
+# Press key combo
+agent-desktop press cmd+s
+agent-desktop press cmd+shift+z
+
+# Hold and release modifier
+agent-desktop key-down shift
+agent-desktop click @e3
+agent-desktop key-up shift
+
+# Navigate with arrows
+agent-desktop press down
+agent-desktop press down
+agent-desktop press return
+
+# Function keys
+agent-desktop press f5  # refresh in browser
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Keyboard Navigation">
+    Drive apps without mouse, using tab and arrow keys:
+    
+    ```bash
+    agent-desktop press tab
+    agent-desktop press tab
+    agent-desktop press return
+    ```
+  </Accordion>
+
+  <Accordion title="Shortcuts">
+    Trigger application shortcuts:
+    
+    ```bash
+    agent-desktop press cmd+n      # new window
+    agent-desktop press cmd+w      # close window
+    agent-desktop press cmd+q      # quit app
+    ```
+  </Accordion>
+
+  <Accordion title="Multi-Selection">
+    Hold shift or cmd while clicking:
+    
+    ```bash
+    agent-desktop key-down cmd
+    agent-desktop click @e2
+    agent-desktop click @e5
+    agent-desktop key-up cmd
+    ```
+  </Accordion>
+
+  <Accordion title="Text Editing">
+    Use keyboard shortcuts for editing:
+    
+    ```bash
+    agent-desktop press cmd+a      # select all
+    agent-desktop press delete     # delete
+    agent-desktop press cmd+z      # undo
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Supported Keys
+
+### Printable Keys
+
+All alphanumeric characters: `a-z`, `0-9`, and symbols.
+
+### Special Keys
+
+- `return`, `enter`
+- `escape`, `esc`
+- `tab`
+- `space`
+- `delete`, `backspace`
+- `up`, `down`, `left`, `right`
+- `home`, `end`
+- `pageup`, `pagedown`
+
+### Function Keys
+
+`f1` through `f12`
+
+### Modifiers
+
+- `cmd` (Command/⌘)
+- `ctrl` (Control)
+- `alt` (Option/⌥)
+- `shift` (Shift/⇧)
+
+## Error Handling
+
+Common error codes:
+
+- `INVALID_ARGS`: Unrecognized key name or malformed combo
+- `ACTION_FAILED`: OS rejected the key event (rare)
+
+All keyboard commands return structured JSON with error codes and recovery hints.

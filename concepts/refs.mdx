@@ -1,0 +1,421 @@
+---
+title: Ref System
+description: Understanding ref allocation, lifecycle, and resolution
+icon: hashtag
+---
+
+## What Are Refs?
+
+**Refs** (references) are deterministic identifiers assigned to interactive elements during a `snapshot` command. They follow the format `@e{n}` where `n` is a sequential integer.
+
+```json
+{
+  "ref_id": "@e1",
+  "role": "button",
+  "name": "Save"
+}
+```
+
+Refs serve as **stable pointers** within a snapshot session, allowing agents to target specific UI elements without fragile text-based selectors.
+
+## Allocation Rules
+
+### Sequential Assignment
+
+Refs are allocated in **depth-first document order**:
+
+```bash
+agent-desktop snapshot --app TextEdit -i
+```
+
+```json
+{
+  "tree": {
+    "role": "window",
+    "children": [
+      {"ref_id": "@e1", "role": "button", "name": "Close"},
+      {"ref_id": "@e2", "role": "button", "name": "Minimize"},
+      {
+        "role": "group",
+        "children": [
+          {"ref_id": "@e3", "role": "button", "name": "Bold"},
+          {"ref_id": "@e4", "role": "button", "name": "Italic"}
+        ]
+      },
+      {"ref_id": "@e5", "role": "textfield", "value": ""}
+    ]
+  }
+}
+```
+
+Traversal order:
+
+1. Window (no ref, structural element)
+2. Close button → `@e1`
+3. Minimize button → `@e2`
+4. Group (no ref, container)
+5. Bold button → `@e3`
+6. Italic button → `@e4`
+7. Text field → `@e5`
+
+<Info>
+Ref IDs **may change** between snapshots if elements are added/removed/reordered, even if the target element is unchanged. Always use the most recent snapshot's refs.
+</Info>
+
+### Interactive Elements Only
+
+Refs are assigned **only** to interactive roles:
+
+<Tabs>
+  <Tab title="Receives Refs">
+    - `button`
+    - `textfield`
+    - `checkbox`
+    - `link`
+    - `menuitem`
+    - `tab`
+    - `slider`
+    - `combobox`
+    - `treeitem`
+    - `cell`
+    - `radiobutton`
+    - `incrementor`
+    - `menubutton`
+    - `switch`
+    - `colorwell`
+    - `dockitem`
+  </Tab>
+  <Tab title="No Refs (Structural)">
+    - `window`
+    - `group`
+    - `statictext` / `label`
+    - `separator`
+    - `toolbar`
+    - `scrollbar`
+    - `image`
+    - `container`
+  </Tab>
+</Tabs>
+
+**Why?** Agents interact with buttons, fields, and controls — not labels or layout groups. Structural elements appear in the tree for **context** but can't be acted upon.
+
+### Example: Mixed Tree
+
+```json
+{
+  "role": "group",
+  "name": "Login Form",
+  "children": [
+    {
+      "role": "statictext",
+      "value": "Username:"
+    },
+    {
+      "ref_id": "@e1",
+      "role": "textfield",
+      "name": "Username",
+      "value": ""
+    },
+    {
+      "role": "statictext",
+      "value": "Password:"
+    },
+    {
+      "ref_id": "@e2",
+      "role": "textfield",
+      "name": "Password",
+      "value": "",
+      "states": ["secure"]
+    },
+    {
+      "ref_id": "@e3",
+      "role": "button",
+      "name": "Log In"
+    }
+  ]
+}
+```
+
+Only 3 refs assigned (2 text fields + 1 button). Labels have no refs but provide context for agents to understand what each field represents.
+
+## Ref Lifecycle
+
+### Creation
+
+Refs are created during `snapshot` execution:
+
+```rust
+// Source: crates/core/src/refs.rs
+pub fn allocate(&mut self, entry: RefEntry) -> String {
+    self.counter += 1;
+    let ref_id = format!("@e{}", self.counter);
+    self.inner.insert(ref_id.clone(), entry);
+    ref_id
+}
+```
+
+Each ref is stored with metadata in a `RefEntry`:
+
+```rust
+// Source: crates/core/src/refs.rs
+pub struct RefEntry {
+    pub pid: i32,                      // Process ID
+    pub role: String,                  // button, textfield, etc.
+    pub name: Option<String>,          // Accessibility name
+    pub value: Option<String>,         // Current value
+    pub states: Vec<String>,           // enabled, focused, checked, etc.
+    pub bounds: Option<Rect>,          // Pixel coordinates
+    pub bounds_hash: Option<u64>,      // Hash for fast re-identification
+    pub available_actions: Vec<String>, // Click, SetValue, etc.
+    pub source_app: Option<String>,    // Application name
+}
+```
+
+### Persistence
+
+The refmap is saved to disk after every snapshot:
+
+```bash
+~/.agent-desktop/last_refmap.json
+```
+
+**Permissions:**
+
+- Directory: `0o700` (user read/write/execute only)
+- File: `0o600` (user read/write only)
+
+This prevents other users from reading potentially sensitive UI state (window titles, field values).
+
+<Warning>
+The refmap file is **replaced atomically** on every snapshot. Old refs are not preserved.
+</Warning>
+
+### Expiration
+
+Refs are **valid until the next snapshot**. Any structural UI change invalidates the current refmap:
+
+- Window opened/closed
+- Dialog appeared/dismissed
+- Element added/removed/moved
+- Application restarted
+- New snapshot executed
+
+## Ref Resolution
+
+### Fast Path: Optimistic Re-identification
+
+When an action command (e.g., `click @e3`) executes:
+
+```rust
+// Source: crates/core/src/commands/helpers.rs
+pub fn resolve_ref(
+    ref_id: &str,
+    adapter: &dyn PlatformAdapter,
+) -> Result<(RefEntry, NativeHandle), AppError> {
+    let refmap = RefMap::load()?;
+    let entry = refmap.get(ref_id)
+        .ok_or_else(|| AppError::stale_ref(ref_id))?;
+    let handle = adapter.resolve_element(entry)?;
+    Ok((entry.clone(), handle))
+}
+```
+
+The platform adapter uses **signature matching**:
+
+```text
+Match criteria:
+- pid (process ID)
+- role (button, textfield, etc.)
+- name (accessibility label)
+- bounds_hash (position/size fingerprint)
+```
+
+If any criterion fails → `STALE_REF` error.
+
+### Error Response
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+**Exit code:** `1` (structured error)
+
+### Recovery Pattern
+
+```bash
+# Attempt action with potentially stale ref
+agent-desktop click @e5
+# → STALE_REF
+
+# Re-snapshot to get fresh refs
+agent-desktop snapshot --app Safari -i
+# → New refmap with updated IDs
+
+# Retry with new ref
+agent-desktop click @e4  # Note: ID may have changed
+# → Success
+```
+
+<Warning>
+Do **not** blindly retry with the same ref ID. Always re-snapshot and use the new ref from the updated tree.
+</Warning>
+
+## Ref Count and `ref_count`
+
+The `snapshot` response includes a `ref_count` field:
+
+```json
+{
+  "app": "Finder",
+  "window": {"id": "w-4521", "title": "Documents"},
+  "ref_count": 14,
+  "tree": { ... }
+}
+```
+
+This indicates how many interactive elements received refs. Use it to:
+
+- Validate snapshot completeness (0 refs = likely permission issue)
+- Estimate UI complexity
+- Debug ref allocation
+
+```rust
+// Source: crates/core/src/commands/snapshot.rs
+let ref_count = result.refmap.len();
+```
+
+## Debugging Refs
+
+### View Stored Refmap
+
+```bash
+cat ~/.agent-desktop/last_refmap.json | jq
+```
+
+```json
+{
+  "inner": {
+    "@e1": {
+      "pid": 1234,
+      "role": "button",
+      "name": "Save",
+      "value": null,
+      "states": ["enabled"],
+      "bounds": {"x": 100.0, "y": 50.0, "width": 80.0, "height": 30.0},
+      "bounds_hash": 123456789,
+      "available_actions": ["Click"],
+      "source_app": "TextEdit"
+    }
+  },
+  "counter": 1
+}
+```
+
+### Check Why Ref Failed
+
+Compare the stored `RefEntry` with current UI state:
+
+1. **PID changed?** → Application restarted
+2. **Bounds changed?** → Window resized or element moved
+3. **Name changed?** → UI text updated (e.g., "Save" → "Saved")
+4. **Role changed?** → Element replaced with different control type
+
+### Find Element Without Ref
+
+Use `find` to locate elements by attributes:
+
+```bash
+agent-desktop find --role button --name "Submit" --app Safari
+```
+
+This searches the **live** accessibility tree without using refs.
+
+## Advanced: Bounds Hash
+
+The `bounds_hash` field enables fast position-based matching:
+
+```rust
+// Source: crates/core/src/node.rs
+pub fn bounds_hash(&self) -> u64 {
+    use rustc_hash::FxHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h = FxHasher::default();
+    let x = (self.x * 100.0) as i64;  // 0.01 pixel precision
+    let y = (self.y * 100.0) as i64;
+    let w = (self.width * 100.0) as i64;
+    let hh = (self.height * 100.0) as i64;
+    x.hash(&mut h);
+    y.hash(&mut h);
+    w.hash(&mut h);
+    hh.hash(&mut h);
+    h.finish()
+}
+```
+
+**Why truncate to 0.01 pixel?** Accessibility APIs sometimes report fractional pixels differently across calls (e.g., `100.0` vs `100.00001`). Truncation makes matching robust.
+
+## Ref Constraints
+
+### Max Refmap Size
+
+```rust
+// Source: crates/core/src/refs.rs
+const MAX_REFMAP_BYTES: u64 = 1_048_576; // 1 MB
+```
+
+If the refmap exceeds 1MB (extremely rare), `snapshot` returns an `INTERNAL` error.
+
+**Typical sizes:**
+
+- Simple app (TextEdit): ~5KB
+- Medium app (Finder): ~50KB
+- Complex app (Xcode): ~200KB
+
+### Ref ID Limits
+
+Ref IDs are `u32` sequential counters:
+
+- Max refs per snapshot: 4,294,967,295
+- Practical limit: ~50,000 (even Xcode with full tree)
+
+You will never hit the theoretical limit.
+
+## Best Practices
+
+<Steps>
+  <Step title="Always use latest refs">
+    Discard old refs after each snapshot. Never cache refs across observations.
+  </Step>
+  
+  <Step title="Handle STALE_REF gracefully">
+    Treat it as a normal flow condition, not an error. Re-snapshot and continue.
+  </Step>
+  
+  <Step title="Use --interactive-only">
+    Reduces ref count to only actionable elements, improving performance and clarity.
+  </Step>
+  
+  <Step title="Validate ref_count">
+    If `ref_count: 0`, check permissions or verify the app has interactive elements.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="JSON Output" icon="brackets-curly" href="/concepts/json-output">
+    Explore the full response structure and data types
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/concepts/error-handling">
+    Learn all error codes and recovery strategies
+  </Card>
+</CardGroup>

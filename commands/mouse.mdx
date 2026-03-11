@@ -1,0 +1,211 @@
+---
+title: Mouse Commands
+description: Commands for moving cursor, clicking, and dragging at coordinates or element centers
+---
+
+Mouse commands provide low-level cursor control. Use these when accessibility APIs are insufficient or when you need pixel-precise positioning.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="hover" icon="arrow-pointer" href="/api-reference/hover">
+    Move cursor to element center or coordinates
+  </Card>
+  <Card title="drag" icon="hand" href="/api-reference/drag">
+    Drag from one element or point to another
+  </Card>
+  <Card title="mouse-move" icon="arrows" href="/api-reference/mouse-move">
+    Move cursor to absolute screen coordinates
+  </Card>
+  <Card title="mouse-click" icon="hand-pointer" href="/api-reference/mouse-click">
+    Click at absolute screen coordinates
+  </Card>
+  <Card title="mouse-down" icon="hand-point-down" href="/api-reference/mouse-down">
+    Press mouse button at coordinates (without releasing)
+  </Card>
+  <Card title="mouse-up" icon="hand-point-up" href="/api-reference/mouse-up">
+    Release mouse button at coordinates
+  </Card>
+</CardGroup>
+
+## When to Use Mouse Commands
+
+Prefer **interaction commands** (like `click @e3`) over mouse commands. Use mouse commands only when:
+
+- Element has no accessibility representation
+- Pixel-precise positioning is required
+- Custom drag-and-drop interactions
+- Game or canvas automation
+
+## Common Patterns
+
+### Hover Over Element
+
+```bash
+agent-desktop hover @e3
+```
+
+Moves cursor to element center. Useful for revealing tooltips or hover states.
+
+### Hover at Coordinates
+
+```bash
+agent-desktop hover --xy 500,300
+```
+
+Moves cursor to absolute screen coordinates (x=500, y=300).
+
+### Drag Between Elements
+
+```bash
+agent-desktop drag @e3 --to @e8
+```
+
+Drags from element `@e3` center to element `@e8` center.
+
+### Drag Between Coordinates
+
+```bash
+agent-desktop drag --xy 100,200 --to-xy 400,200
+```
+
+Drags from `(100, 200)` to `(400, 200)`.
+
+### Click at Coordinates
+
+```bash
+agent-desktop mouse-click --xy 500,300
+```
+
+Clicks at absolute coordinates. Supports `--button` (left, right, middle) and `--count` (1, 2, 3).
+
+### Double-Click at Coordinates
+
+```bash
+agent-desktop mouse-click --xy 500,300 --count 2
+```
+
+### Right-Click at Coordinates
+
+```bash
+agent-desktop mouse-click --xy 500,300 --button right
+```
+
+### Manual Drag Sequence
+
+For complex drag gestures:
+
+```bash
+agent-desktop mouse-down --xy 100,200
+agent-desktop wait 100
+agent-desktop mouse-move --xy 400,200
+agent-desktop wait 100
+agent-desktop mouse-up --xy 400,200
+```
+
+## Examples
+
+```bash
+# Hover over element
+agent-desktop hover @e3
+
+# Hover at coordinates
+agent-desktop hover --xy 500,300
+
+# Drag between elements
+agent-desktop drag @e3 --to @e8
+
+# Drag between coordinates
+agent-desktop drag --xy 100,200 --to-xy 400,200
+
+# Click at coordinates
+agent-desktop mouse-click --xy 500,300
+
+# Double-click at coordinates
+agent-desktop mouse-click --xy 500,300 --count 2
+
+# Right-click at coordinates
+agent-desktop mouse-click --xy 500,300 --button right
+
+# Move cursor to coordinates
+agent-desktop mouse-move --xy 500,300
+
+# Press mouse button
+agent-desktop mouse-down --xy 500,300
+
+# Release mouse button
+agent-desktop mouse-up --xy 500,300
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Reveal Tooltips">
+    Hover over elements to trigger tooltips:
+    
+    ```bash
+    agent-desktop hover @e3
+    agent-desktop wait 500
+    agent-desktop snapshot --surface popover
+    ```
+  </Accordion>
+
+  <Accordion title="Drag and Drop">
+    Drag files, reorder lists, move windows:
+    
+    ```bash
+    agent-desktop drag @e3 --to @e8
+    ```
+  </Accordion>
+
+  <Accordion title="Canvas Interaction">
+    Interact with drawing apps, games, or custom canvas elements:
+    
+    ```bash
+    agent-desktop mouse-down --xy 100,100
+    agent-desktop mouse-move --xy 200,200
+    agent-desktop mouse-up --xy 200,200
+    ```
+  </Accordion>
+
+  <Accordion title="Pixel-Precise Positioning">
+    When accessibility bounds are unreliable:
+    
+    ```bash
+    agent-desktop mouse-click --xy 500,300
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Coordinate System
+
+- Origin `(0, 0)` is **top-left** of the primary screen
+- X increases to the right
+- Y increases downward
+- Multi-monitor setups: coordinates extend into negative space or beyond primary screen bounds
+
+To get element bounds:
+
+```bash
+agent-desktop get @e3 bounds
+```
+
+Returns `{"x": 100, "y": 200, "width": 80, "height": 40}`.
+
+## Mouse Buttons
+
+Supported values for `--button`:
+
+- `left` (default)
+- `right`
+- `middle`
+
+## Error Handling
+
+Common error codes:
+
+- `INVALID_ARGS`: Coordinates out of bounds or malformed
+- `ACTION_FAILED`: OS rejected the mouse event
+- `ELEMENT_NOT_FOUND`: Ref doesn't exist (when using element-based hover/drag)
+
+All mouse commands return structured JSON with error codes and recovery hints.

@@ -1,0 +1,90 @@
+---
+title: "maximize"
+description: "Maximize or zoom an application window"
+---
+
+## Usage
+
+```bash
+agent-desktop maximize [OPTIONS]
+```
+
+## Description
+
+Maximizes an application window to fill the screen or expand to its optimal size (zoom). The behavior depends on the operating system and application. The window is identified by application name (defaults to focused app if not specified).
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — if not specified, operates on the focused application
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "maximize",
+  "data": {
+    "maximized": true
+  }
+}
+```
+
+## Examples
+
+### Maximize focused window
+
+```bash
+agent-desktop maximize
+```
+
+### Maximize specific app
+
+```bash
+agent-desktop maximize --app Safari
+```
+
+### Maximize and restore
+
+```bash
+agent-desktop maximize --app TextEdit
+agent-desktop wait 2000
+agent-desktop restore --app TextEdit
+```
+
+### Toggle maximize
+
+```bash
+# First call maximizes, second call restores (on most apps)
+agent-desktop maximize --app Finder
+agent-desktop maximize --app Finder
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not running or has no windows
+- `WINDOW_NOT_FOUND` — No window found for the specified application
+- `ACTION_FAILED` — Failed to maximize window
+
+## Platform Differences
+
+### macOS
+
+- Triggers the "zoom" action (green window button)
+- Behavior varies by app: some fill the screen, others expand to optimal content size
+- Does not enter fullscreen mode (use keyboard shortcut `cmd+ctrl+f` for that)
+
+### Windows (Planned)
+
+- Maximizes window to fill the entire screen
+- Equivalent to clicking the maximize button or pressing `Win+Up`
+
+## Notes
+
+- Maximize behavior depends on the application's implementation
+- Some apps may not support maximize/zoom
+- Use `restore` to return window to its previous size
+- On macOS, requires Accessibility permission
+- If multiple windows exist for the app, the first one is maximized

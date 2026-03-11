@@ -1,0 +1,89 @@
+---
+title: "resize-window"
+description: "Resize an application window to specified dimensions"
+---
+
+## Usage
+
+```bash
+agent-desktop resize-window --width <WIDTH> --height <HEIGHT> [OPTIONS]
+```
+
+## Description
+
+Resizes an application window to the specified width and height in pixels. The window is identified by application name (defaults to focused app if not specified).
+
+## Parameters
+
+<ParamField path="--width" type="number" required>
+  New window width in pixels
+</ParamField>
+
+<ParamField path="--height" type="number" required>
+  New window height in pixels
+</ParamField>
+
+<ParamField path="--app" type="string">
+  Application name (e.g., "Safari") — if not specified, operates on the focused application
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "resize-window",
+  "data": {
+    "resized": true,
+    "width": 800.0,
+    "height": 600.0
+  }
+}
+```
+
+## Examples
+
+### Resize focused window
+
+```bash
+agent-desktop resize-window --width 1024 --height 768
+```
+
+### Resize specific app window
+
+```bash
+agent-desktop resize-window --app Safari --width 1200 --height 800
+```
+
+### Resize to standard dimensions
+
+```bash
+# 720p
+agent-desktop resize-window --app TextEdit --width 1280 --height 720
+
+# 1080p
+agent-desktop resize-window --app Safari --width 1920 --height 1080
+```
+
+### Resize and verify
+
+```bash
+agent-desktop resize-window --app Finder --width 800 --height 600
+agent-desktop list-windows --app Finder | jq '.data[0].bounds'
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not running or has no windows
+- `WINDOW_NOT_FOUND` — No window found for the specified application
+- `INVALID_ARGS` — Invalid width or height values (must be positive numbers)
+- `ACTION_FAILED` — Failed to resize window (some windows may not be resizable)
+
+## Notes
+
+- Width and height are in screen pixels
+- Some windows have minimum or maximum size constraints
+- Fullscreen windows cannot be resized
+- On macOS, requires Accessibility permission
+- If multiple windows exist for the app, the first one is resized

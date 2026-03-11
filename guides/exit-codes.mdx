@@ -1,0 +1,187 @@
+---
+title: "Exit Codes"
+description: "Understand return codes for scripting and error handling"
+---
+
+## Overview
+
+`agent-desktop` uses three exit codes to indicate the outcome of a command. These codes enable precise error handling in scripts and automation workflows.
+
+```bash
+agent-desktop snapshot -i
+echo $?  # Check exit code
+```
+
+## Exit Code Reference
+
+<ResponseField name="0" type="success">
+  **Success** - Command completed successfully
+  
+  The command executed without errors. JSON output on stdout contains `"ok": true`.
+  
+  ```bash
+  agent-desktop snapshot --app Finder -i
+  # Exit code: 0
+  ```
+  
+  ```json
+  {
+    "version": "1.0",
+    "ok": true,
+    "command": "snapshot",
+    "data": { ... }
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="1" type="error">
+  **Structured Error** - Command failed with a known error condition
+  
+  The command encountered a runtime error (permission denied, element not found, timeout, etc.). JSON output on stdout contains `"ok": false` with error details.
+  
+  ```bash
+  agent-desktop click @e99
+  # Exit code: 1 (element doesn't exist)
+  ```
+  
+  ```json
+  {
+    "version": "1.0",
+    "ok": false,
+    "command": "click",
+    "error": {
+      "code": "ELEMENT_NOT_FOUND",
+      "message": "No element matched @e99",
+      "suggestion": "Run 'snapshot' to refresh refs"
+    }
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="2" type="error">
+  **Argument Parse Error** - Invalid command-line arguments
+  
+  The command syntax was incorrect or required arguments were missing. Error message printed to stderr (not JSON).
+  
+  ```bash
+  agent-desktop snapshot --invalid-flag
+  # Exit code: 2
+  # Error: unexpected argument '--invalid-flag'
+  ```
+</ResponseField>
+
+## Error Codes (Exit Code 1)
+
+When exit code is `1`, the JSON output includes a machine-readable error code:
+
+| Code | Meaning | Recovery |
+|------|---------|----------|
+| `PERM_DENIED` | Accessibility permission not granted | Grant permission in System Settings |
+| `ELEMENT_NOT_FOUND` | No element matched the ref or query | Run `snapshot` to get updated refs |
+| `APP_NOT_FOUND` | Application not running or no windows | Launch the app first |
+| `STALE_REF` | Ref is from a previous snapshot | Run `snapshot` to refresh refs |
+| `ACTION_FAILED` | The OS rejected the action | Verify element supports the action |
+| `TIMEOUT` | Wait condition expired | Increase timeout or check condition |
+| `INVALID_ARGS` | Invalid argument values | Check argument format |
+| `ACTION_NOT_SUPPORTED` | Action not available for this element | Use a different action |
+| `WINDOW_NOT_FOUND` | Window not found | Verify window exists with `list-windows` |
+| `PLATFORM_NOT_SUPPORTED` | Feature not available on this OS | Check platform support |
+| `INTERNAL` | Unexpected internal error | Report as bug |
+
+## Scripting Examples
+
+### Bash: Handle Errors
+
+```bash
+#!/bin/bash
+
+if agent-desktop snapshot --app Safari -i > /tmp/snapshot.json; then
+  echo "Snapshot successful"
+else
+  exit_code=$?
+  if [ $exit_code -eq 1 ]; then
+    echo "Runtime error - check JSON output"
+    cat /tmp/snapshot.json
+  elif [ $exit_code -eq 2 ]; then
+    echo "Invalid arguments"
+  fi
+  exit $exit_code
+fi
+```
+
+### Python: Parse JSON Errors
+
+```python
+import subprocess
+import json
+import sys
+
+result = subprocess.run(
+    ["agent-desktop", "click", "@e3"],
+    capture_output=True,
+    text=True
+)
+
+if result.returncode == 0:
+    data = json.loads(result.stdout)
+    print(f"Success: {data['command']}")
+elif result.returncode == 1:
+    error = json.loads(result.stdout)
+    print(f"Error {error['error']['code']}: {error['error']['message']}")
+    if error['error'].get('suggestion'):
+        print(f"Suggestion: {error['error']['suggestion']}")
+    sys.exit(1)
+else:
+    print(f"Argument error: {result.stderr}", file=sys.stderr)
+    sys.exit(2)
+```
+
+### Node.js: Retry on Stale Ref
+
+```javascript
+const { execSync } = require('child_process');
+
+function runCommand(cmd) {
+  try {
+    const output = execSync(cmd, { encoding: 'utf8' });
+    return JSON.parse(output);
+  } catch (error) {
+    if (error.status === 1) {
+      const result = JSON.parse(error.stdout);
+      if (result.error.code === 'STALE_REF') {
+        console.log('Stale ref detected, refreshing snapshot...');
+        runCommand('agent-desktop snapshot -i');
+        return runCommand(cmd); // Retry
+      }
+      throw new Error(`${result.error.code}: ${result.error.message}`);
+    } else if (error.status === 2) {
+      throw new Error(`Invalid arguments: ${error.stderr}`);
+    }
+  }
+}
+
+runCommand('agent-desktop click @e5');
+```
+
+## Best Practices
+
+<Check>
+  **Always check exit codes** in scripts to handle errors gracefully
+</Check>
+
+<Check>
+  **Parse JSON on exit code 1** to get structured error information
+</Check>
+
+<Check>
+  **Use error codes for conditional logic** rather than parsing error messages
+</Check>
+
+<Warning>
+  Exit code 2 errors write to **stderr**, not stdout, and are **not JSON formatted**
+</Warning>
+
+## Related
+
+- [JSON Output](/core-concepts/json-output) - Structured response format
+- [Error Handling](/core-concepts/error-handling) - Recovery strategies

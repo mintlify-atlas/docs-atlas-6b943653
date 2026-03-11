@@ -1,0 +1,315 @@
+---
+title: snapshot
+description: Capture the accessibility tree as structured JSON with @ref IDs
+---
+
+Capture the accessibility tree of an application window as structured JSON. Each interactive element is assigned a deterministic reference ID (`@e1`, `@e2`, etc.) that can be used in subsequent action commands.
+
+## Usage
+
+```bash
+agent-desktop snapshot [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string" default="focused app">
+  Filter to a specific application by name (e.g., "Finder", "Safari").
+</ParamField>
+
+<ParamField path="--window-id" type="string">
+  Filter to a specific window ID from `list-windows` output.
+</ParamField>
+
+<ParamField path="--max-depth" type="number" default="10">
+  Maximum tree depth to traverse. Prevents infinite recursion on deeply nested UIs.
+</ParamField>
+
+<ParamField path="--include-bounds" type="boolean" default="false">
+  Include pixel bounds (x, y, width, height) for each element in the tree.
+</ParamField>
+
+<ParamField path="-i, --interactive-only" type="boolean" default="false">
+  Only include interactive elements (buttons, text fields, etc.) in the tree. Static labels and containers are omitted.
+</ParamField>
+
+<ParamField path="--compact" type="boolean" default="false">
+  Collapse single-child unnamed nodes to reduce tree depth and improve readability.
+</ParamField>
+
+<ParamField path="--surface" type="enum" default="window">
+  Surface type to snapshot.
+  
+  **Options:** `window`, `focused`, `menu`, `menubar`, `sheet`, `popover`, `alert`
+</ParamField>
+
+## Response
+
+<ResponseField name="app" type="string">
+  Name of the application that was snapshotted.
+</ResponseField>
+
+<ResponseField name="window" type="object">
+  Information about the window that was captured.
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique window identifier.
+    </ResponseField>
+    
+    <ResponseField name="title" type="string">
+      Window title text.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="ref_count" type="number">
+  Total number of interactive elements that received ref IDs.
+</ResponseField>
+
+<ResponseField name="tree" type="object">
+  Root accessibility node containing the entire element tree.
+  
+  <Expandable title="properties">
+    <ResponseField name="ref_id" type="string" optional>
+      Reference ID for this element (e.g., `@e1`, `@e2`). Only present on interactive elements.
+    </ResponseField>
+    
+    <ResponseField name="role" type="string">
+      Accessibility role (e.g., `button`, `textfield`, `checkbox`, `window`, `group`).
+    </ResponseField>
+    
+    <ResponseField name="name" type="string" optional>
+      Accessible name or label for the element.
+    </ResponseField>
+    
+    <ResponseField name="value" type="string" optional>
+      Current value (for text fields, sliders, etc.).
+    </ResponseField>
+    
+    <ResponseField name="description" type="string" optional>
+      Accessibility description or help text.
+    </ResponseField>
+    
+    <ResponseField name="states" type="array" optional>
+      Array of state strings: `checked`, `focused`, `enabled`, `disabled`, `expanded`, `hidden`.
+    </ResponseField>
+    
+    <ResponseField name="bounds" type="object" optional>
+      Pixel bounds (only if `--include-bounds` is set).
+      
+      <Expandable title="properties">
+        <ResponseField name="x" type="number">X coordinate</ResponseField>
+        <ResponseField name="y" type="number">Y coordinate</ResponseField>
+        <ResponseField name="width" type="number">Width in pixels</ResponseField>
+        <ResponseField name="height" type="number">Height in pixels</ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="children" type="array">
+      Array of child accessibility nodes (recursive structure).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Basic snapshot with interactive elements only
+
+```bash
+agent-desktop snapshot --app Finder -i
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "Finder",
+    "window": {
+      "id": "w-4521",
+      "title": "Documents"
+    },
+    "ref_count": 14,
+    "tree": {
+      "role": "window",
+      "name": "Documents",
+      "children": [
+        {
+          "ref_id": "@e1",
+          "role": "button",
+          "name": "Back",
+          "states": ["enabled"]
+        },
+        {
+          "ref_id": "@e2",
+          "role": "textfield",
+          "name": "Search",
+          "value": "",
+          "states": ["enabled"]
+        },
+        {
+          "ref_id": "@e3",
+          "role": "button",
+          "name": "List View",
+          "states": ["enabled", "checked"]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Snapshot with bounds included
+
+```bash
+agent-desktop snapshot --app "System Settings" --include-bounds
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "System Settings",
+    "window": {
+      "id": "w-8892",
+      "title": "General"
+    },
+    "ref_count": 42,
+    "tree": {
+      "role": "window",
+      "name": "General",
+      "bounds": {
+        "x": 100,
+        "y": 200,
+        "width": 800,
+        "height": 600
+      },
+      "children": [
+        {
+          "ref_id": "@e1",
+          "role": "checkbox",
+          "name": "Show scroll bars",
+          "states": ["enabled", "checked"],
+          "bounds": {
+            "x": 150,
+            "y": 300,
+            "width": 200,
+            "height": 20
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### Snapshot of an open menu
+
+```bash
+agent-desktop snapshot --surface menu --app TextEdit
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "TextEdit",
+    "window": {
+      "id": "menu-1",
+      "title": "File"
+    },
+    "ref_count": 8,
+    "tree": {
+      "role": "menu",
+      "name": "File",
+      "children": [
+        {
+          "ref_id": "@e1",
+          "role": "menuitem",
+          "name": "New",
+          "states": ["enabled"]
+        },
+        {
+          "ref_id": "@e2",
+          "role": "menuitem",
+          "name": "Open…",
+          "states": ["enabled"]
+        },
+        {
+          "ref_id": "@e3",
+          "role": "menuitem",
+          "name": "Save",
+          "states": ["enabled"]
+        }
+      ]
+    }
+  }
+}
+```
+
+## Error Cases
+
+### Application not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "APP_NOT_FOUND",
+    "message": "No windows found for app 'InvalidApp'"
+  }
+}
+```
+
+### Window not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "WINDOW_NOT_FOUND",
+    "message": "Window 'w-99999' not found"
+  }
+}
+```
+
+### Permission denied
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal"
+  }
+}
+```
+
+## Notes
+
+- Refs are allocated in **depth-first order**: `@e1`, `@e2`, `@e3`, etc.
+- Only **interactive roles** receive refs: `button`, `textfield`, `checkbox`, `link`, `menuitem`, `tab`, `slider`, `combobox`, `treeitem`, `cell`, `radiobutton`, etc.
+- Static elements (labels, groups, containers) appear in the tree for context but do not receive refs unless `--interactive-only` is used.
+- Refs are **deterministic within a snapshot** but NOT stable across snapshots if the UI changes.
+- The RefMap is stored at `~/.agent-desktop/last_refmap.json` with `0o600` permissions.
+- Each snapshot **replaces** the refmap file entirely (atomic write via temp + rename).
+
+## See Also
+
+- [find](/api/find) - Search for elements by role, name, or value
+- [get](/api/get) - Read element properties
+- [is](/api/is) - Check element states
+- [list-surfaces](/api/list-surfaces) - List available surfaces for an app

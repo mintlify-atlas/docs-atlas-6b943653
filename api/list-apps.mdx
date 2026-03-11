@@ -1,0 +1,99 @@
+---
+title: "list-apps"
+description: "List all running GUI applications"
+---
+
+## Usage
+
+```bash
+agent-desktop list-apps
+```
+
+## Description
+
+Returns an array of all running GUI applications with their name, process ID, and bundle identifier.
+
+## Parameters
+
+This command takes no parameters.
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-apps",
+  "data": {
+    "apps": [
+      {
+        "name": "Finder",
+        "pid": 1234,
+        "bundle_id": "com.apple.finder"
+      },
+      {
+        "name": "Safari",
+        "pid": 5678,
+        "bundle_id": "com.apple.Safari"
+      },
+      {
+        "name": "TextEdit",
+        "pid": 9012,
+        "bundle_id": "com.apple.TextEdit"
+      }
+    ]
+  }
+}
+```
+
+### Response Fields
+
+Each app object contains:
+
+- `name` — Application display name
+- `pid` — Process ID
+- `bundle_id` — macOS bundle identifier (e.g., "com.apple.Safari"), may be null for some apps
+
+## Examples
+
+### List all running apps
+
+```bash
+agent-desktop list-apps
+```
+
+### Check if specific app is running
+
+```bash
+agent-desktop list-apps | jq '.data.apps[] | select(.name == "Safari")'
+```
+
+### Get app PID
+
+```bash
+agent-desktop list-apps | jq '.data.apps[] | select(.name == "TextEdit") | .pid'
+```
+
+### Count running apps
+
+```bash
+agent-desktop list-apps | jq '.data.apps | length'
+```
+
+### Extract all bundle IDs
+
+```bash
+agent-desktop list-apps | jq '.data.apps[] | .bundle_id'
+```
+
+## Error Codes
+
+- `PERM_DENIED` — Missing Accessibility permission
+- `INTERNAL` — System error retrieving application list
+
+## Notes
+
+- Only GUI applications are included (no background daemons or command-line tools)
+- On macOS, requires Accessibility permission
+- The `bundle_id` field can be used with the `launch` command for precise app identification
+- Process IDs are valid until the application quits

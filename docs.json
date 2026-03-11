@@ -1,122 +1,192 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Agent Desktop",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0F766E",
+    "light": "#5EEAD4",
+    "dark": "#134E4A"
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guides",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/lahfir/agent-desktop"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/lahfir/agent-desktop"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "permissions"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workflow",
+              "concepts/refs",
+              "concepts/json-output",
+              "concepts/error-handling"
+            ]
+          },
+          {
+            "group": "Command Categories",
+            "pages": [
+              "commands/observation",
+              "commands/interaction",
+              "commands/keyboard",
+              "commands/mouse",
+              "commands/app-window",
+              "commands/clipboard",
+              "commands/wait",
+              "commands/system",
+              "commands/batch"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/snapshot-options",
+              "guides/key-combos",
+              "guides/exit-codes",
+              "guides/platform-support"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/architecture",
+              "advanced/development",
+              "advanced/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Observation Commands",
+            "pages": [
+              "api/snapshot",
+              "api/screenshot",
+              "api/find",
+              "api/get",
+              "api/is",
+              "api/list-surfaces"
+            ]
+          },
+          {
+            "group": "Interaction Commands",
+            "pages": [
+              "api/click",
+              "api/double-click",
+              "api/triple-click",
+              "api/right-click",
+              "api/type",
+              "api/set-value",
+              "api/clear",
+              "api/focus",
+              "api/select",
+              "api/toggle",
+              "api/check",
+              "api/uncheck",
+              "api/expand",
+              "api/collapse",
+              "api/scroll",
+              "api/scroll-to"
+            ]
+          },
+          {
+            "group": "Keyboard Commands",
+            "pages": [
+              "api/press",
+              "api/key-down",
+              "api/key-up"
+            ]
+          },
+          {
+            "group": "Mouse Commands",
+            "pages": [
+              "api/hover",
+              "api/drag",
+              "api/mouse-move",
+              "api/mouse-click",
+              "api/mouse-down",
+              "api/mouse-up"
+            ]
+          },
+          {
+            "group": "App & Window Commands",
+            "pages": [
+              "api/launch",
+              "api/close-app",
+              "api/list-windows",
+              "api/list-apps",
+              "api/focus-window",
+              "api/resize-window",
+              "api/move-window",
+              "api/minimize",
+              "api/maximize",
+              "api/restore"
+            ]
+          },
+          {
+            "group": "Notification Commands",
+            "pages": [
+              "api/list-notifications",
+              "api/dismiss-notification",
+              "api/dismiss-all-notifications",
+              "api/notification-action"
+            ]
+          },
+          {
+            "group": "Clipboard Commands",
+            "pages": [
+              "api/clipboard-get",
+              "api/clipboard-set",
+              "api/clipboard-clear"
+            ]
+          },
+          {
+            "group": "Wait Commands",
+            "pages": [
+              "api/wait"
+            ]
+          },
+          {
+            "group": "System Commands",
+            "pages": [
+              "api/status",
+              "api/permissions",
+              "api/version"
+            ]
+          },
+          {
+            "group": "Batch Commands",
+            "pages": [
+              "api/batch"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

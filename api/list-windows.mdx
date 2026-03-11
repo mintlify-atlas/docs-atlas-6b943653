@@ -1,0 +1,107 @@
+---
+title: "list-windows"
+description: "List all visible windows with optional app filtering"
+---
+
+## Usage
+
+```bash
+agent-desktop list-windows [OPTIONS]
+```
+
+## Description
+
+Returns an array of all visible windows on the desktop. Each window includes its ID, title, application name, process ID, focus state, and optionally bounds.
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Filter results to windows from a specific application (e.g., "Safari", "Finder")
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "list-windows",
+  "data": [
+    {
+      "id": "w-4521",
+      "title": "Documents",
+      "app_name": "Finder",
+      "pid": 1234,
+      "is_focused": true,
+      "bounds": {
+        "x": 100.0,
+        "y": 200.0,
+        "width": 800.0,
+        "height": 600.0
+      }
+    },
+    {
+      "id": "w-4522",
+      "title": "Untitled",
+      "app_name": "TextEdit",
+      "pid": 5678,
+      "is_focused": false
+    }
+  ]
+}
+```
+
+### Response Fields
+
+Each window object contains:
+
+- `id` — Unique window identifier (use with `focus-window`, `resize-window`, etc.)
+- `title` — Current window title
+- `app_name` — Application that owns this window
+- `pid` — Process ID
+- `is_focused` — Whether this window currently has keyboard focus
+- `bounds` — Window position and size (may be omitted)
+
+## Examples
+
+### List all visible windows
+
+```bash
+agent-desktop list-windows
+```
+
+### List windows for specific app
+
+```bash
+agent-desktop list-windows --app Safari
+```
+
+### Get focused window
+
+```bash
+agent-desktop list-windows | jq '.data[] | select(.is_focused == true)'
+```
+
+### Count windows per app
+
+```bash
+agent-desktop list-windows | jq '[.data[] | .app_name] | group_by(.) | map({app: .[0], count: length})'
+```
+
+### Find window by title
+
+```bash
+agent-desktop list-windows | jq '.data[] | select(.title | contains("Settings"))'
+```
+
+## Error Codes
+
+- `PERM_DENIED` — Missing Accessibility permission
+- `APP_NOT_FOUND` — Specified app filter does not match any running application
+
+## Notes
+
+- Only visible windows are included (minimized windows are excluded)
+- Window IDs are stable within a session but may change after app restart
+- On macOS, requires Accessibility permission
+- Use the returned `id` field for window-specific commands like `focus-window`, `resize-window`, etc.

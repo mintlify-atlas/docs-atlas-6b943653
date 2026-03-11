@@ -1,0 +1,316 @@
+---
+title: App & Window Management
+description: Commands for launching apps, managing windows, and controlling application lifecycle
+---
+
+App and window management commands let you launch applications, quit them, list running apps and windows, and manipulate window state (resize, move, minimize, maximize).
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="launch" icon="rocket" href="/api-reference/launch">
+    Launch application and wait for window
+  </Card>
+  <Card title="close-app" icon="xmark" href="/api-reference/close-app">
+    Quit application gracefully or force kill
+  </Card>
+  <Card title="list-windows" icon="window-restore" href="/api-reference/list-windows">
+    List all visible windows (filter by app)
+  </Card>
+  <Card title="list-apps" icon="list" href="/api-reference/list-apps">
+    List all running GUI applications
+  </Card>
+  <Card title="focus-window" icon="bullseye" href="/api-reference/focus-window">
+    Bring window to front
+  </Card>
+  <Card title="resize-window" icon="expand" href="/api-reference/resize-window">
+    Resize application window
+  </Card>
+  <Card title="move-window" icon="arrows" href="/api-reference/move-window">
+    Move window to new position
+  </Card>
+  <Card title="minimize" icon="window-minimize" href="/api-reference/minimize">
+    Minimize application window
+  </Card>
+  <Card title="maximize" icon="window-maximize" href="/api-reference/maximize">
+    Maximize or zoom application window
+  </Card>
+  <Card title="restore" icon="window-restore" href="/api-reference/restore">
+    Restore minimized or maximized window
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Launch Application
+
+```bash
+agent-desktop launch Safari
+```
+
+Launches Safari and waits until its window is visible. Returns window info:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "window": {
+      "id": "w-4521",
+      "title": "Safari",
+      "app_name": "Safari",
+      "pid": 1234,
+      "bounds": {"x": 100, "y": 100, "width": 800, "height": 600}
+    }
+  }
+}
+```
+
+### Launch by Bundle ID
+
+```bash
+agent-desktop launch com.apple.Safari
+```
+
+### Quit Application
+
+```bash
+agent-desktop close-app Safari
+```
+
+Sends graceful quit signal. App may prompt to save documents.
+
+### Force Quit Application
+
+```bash
+agent-desktop close-app Safari --force
+```
+
+Sends `SIGKILL` — immediate termination, no save prompts.
+
+### List Running Applications
+
+```bash
+agent-desktop list-apps
+```
+
+Returns all GUI apps:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "apps": [
+      {"name": "Finder", "bundle_id": "com.apple.finder", "pid": 456},
+      {"name": "Safari", "bundle_id": "com.apple.Safari", "pid": 1234}
+    ]
+  }
+}
+```
+
+### List All Windows
+
+```bash
+agent-desktop list-windows
+```
+
+Returns all visible windows across all apps.
+
+### List Windows for Specific App
+
+```bash
+agent-desktop list-windows --app Finder
+```
+
+Filters to Finder windows only.
+
+### Focus Window
+
+```bash
+agent-desktop focus-window w-4521
+```
+
+Brings window to front. You can also filter by app or title:
+
+```bash
+agent-desktop focus-window --app Safari
+agent-desktop focus-window --title "Documents"
+```
+
+### Resize Window
+
+```bash
+agent-desktop resize-window w-4521 800 600
+```
+
+Sets window size to 800x600 pixels.
+
+Or filter by app:
+
+```bash
+agent-desktop resize-window --app TextEdit --width 800 --height 600
+```
+
+### Move Window
+
+```bash
+agent-desktop move-window w-4521 100 100
+```
+
+Moves window to position (100, 100).
+
+Or filter by app:
+
+```bash
+agent-desktop move-window --app Finder --x 100 --y 100
+```
+
+### Minimize Window
+
+```bash
+agent-desktop minimize --app TextEdit
+```
+
+### Maximize Window
+
+```bash
+agent-desktop maximize --app Safari
+```
+
+On macOS, this triggers the "zoom" behavior (green button).
+
+### Restore Window
+
+```bash
+agent-desktop restore --app Finder
+```
+
+Restores from minimized or maximized state.
+
+## Examples
+
+```bash
+# Launch app by name
+agent-desktop launch Safari
+
+# Launch app by bundle ID
+agent-desktop launch com.apple.Safari
+
+# Quit app gracefully
+agent-desktop close-app Safari
+
+# Force quit app
+agent-desktop close-app Safari --force
+
+# List all running apps
+agent-desktop list-apps
+
+# List all windows
+agent-desktop list-windows
+
+# List windows for specific app
+agent-desktop list-windows --app Finder
+
+# Focus window by ID
+agent-desktop focus-window w-4521
+
+# Focus window by app name
+agent-desktop focus-window --app Safari
+
+# Resize window
+agent-desktop resize-window w-4521 800 600
+
+# Resize window by app
+agent-desktop resize-window --app TextEdit --width 800 --height 600
+
+# Move window
+agent-desktop move-window w-4521 100 100
+
+# Move window by app
+agent-desktop move-window --app Finder --x 100 --y 100
+
+# Minimize window
+agent-desktop minimize --app TextEdit
+
+# Maximize window
+agent-desktop maximize --app Safari
+
+# Restore window
+agent-desktop restore --app Finder
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="App Lifecycle Management">
+    Launch apps, configure them, then quit:
+    
+    ```bash
+    agent-desktop launch "System Settings"
+    agent-desktop snapshot --app "System Settings" -i
+    agent-desktop click @e5
+    agent-desktop close-app "System Settings"
+    ```
+  </Accordion>
+
+  <Accordion title="Multi-App Workflows">
+    Orchestrate tasks across multiple applications:
+    
+    ```bash
+    agent-desktop launch Finder
+    agent-desktop launch TextEdit
+    agent-desktop focus-window --app Finder
+    agent-desktop click @e3
+    agent-desktop press cmd+c
+    agent-desktop focus-window --app TextEdit
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Window Layout Automation">
+    Arrange windows for optimal workflow:
+    
+    ```bash
+    agent-desktop resize-window --app Safari --width 1000 --height 800
+    agent-desktop move-window --app Safari --x 0 --y 0
+    agent-desktop resize-window --app TextEdit --width 600 --height 800
+    agent-desktop move-window --app TextEdit --x 1000 --y 0
+    ```
+  </Accordion>
+
+  <Accordion title="Clean Up Background Apps">
+    Close unused applications to free resources:
+    
+    ```bash
+    agent-desktop list-apps
+    agent-desktop close-app Slack
+    agent-desktop close-app Spotify
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Window Identification
+
+Windows are identified by:
+
+- `window-id` (e.g., `w-4521`) — unique per window, obtained from `list-windows` or `launch`
+- `--app <NAME>` — filter to application name
+- `--title <TITLE>` — filter by window title (partial match)
+
+Examples:
+
+```bash
+agent-desktop focus-window w-4521
+agent-desktop focus-window --app Safari
+agent-desktop focus-window --title "Documents"
+```
+
+## Error Handling
+
+Common error codes:
+
+- `APP_NOT_FOUND`: Application not running or has no windows
+- `WINDOW_NOT_FOUND`: No window matched the filter
+- `ACTION_FAILED`: OS rejected the window operation
+- `TIMEOUT`: App didn't launch within timeout period
+
+All commands return structured JSON with error codes and recovery hints.

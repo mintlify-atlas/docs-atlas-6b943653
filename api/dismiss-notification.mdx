@@ -1,0 +1,205 @@
+---
+title: dismiss-notification
+description: Dismiss a specific notification by its index
+---
+
+Dismiss a single notification from the Notification Center using the index obtained from `list-notifications`.
+
+## Usage
+
+```bash
+agent-desktop dismiss-notification <INDEX> [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="INDEX" type="number" required>
+  1-based notification index from list-notifications. Must be >= 1.
+  
+  **Note:** While `list-notifications` returns 0-based indices, this command accepts 1-based indices for user convenience.
+  
+  ```bash
+  agent-desktop dismiss-notification 1
+  ```
+</ParamField>
+
+<ParamField path="--app" type="string" optional>
+  Filter notifications by app before selecting the index. This scopes the index to notifications from the specified app only.
+  
+  ```bash
+  agent-desktop dismiss-notification 1 --app Slack
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="dismissed" type="object" required>
+  Information about the dismissed notification
+  
+  <Expandable title="dismissed object">
+    <ResponseField name="index" type="number" required>
+      The 0-based index of the dismissed notification
+    </ResponseField>
+    
+    <ResponseField name="app_name" type="string" required>
+      Name of the application that sent the notification
+    </ResponseField>
+    
+    <ResponseField name="title" type="string" required>
+      Notification title
+    </ResponseField>
+    
+    <ResponseField name="body" type="string" optional>
+      Notification body text (omitted if empty)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Dismiss by Index
+
+```bash
+# First, list notifications to get indices
+agent-desktop list-notifications
+
+# Dismiss the first notification (index 0 becomes 1)
+agent-desktop dismiss-notification 1
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-notification",
+  "data": {
+    "dismissed": {
+      "index": 0,
+      "app_name": "Messages",
+      "title": "New message from John",
+      "body": "Hey, are you available?"
+    }
+  }
+}
+```
+</ResponseExample>
+
+### Dismiss with App Filter
+
+```bash
+# Dismiss the first Slack notification
+agent-desktop dismiss-notification 1 --app Slack
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "dismiss-notification",
+  "data": {
+    "dismissed": {
+      "index": 3,
+      "app_name": "Slack",
+      "title": "#engineering",
+      "body": "New message in channel"
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Workflow
+
+<Steps>
+  <Step title="List notifications">
+    Run `list-notifications` to see all notifications with their indices:
+    
+    ```bash
+    agent-desktop list-notifications
+    ```
+  </Step>
+  
+  <Step title="Note the index">
+    Identify the notification you want to dismiss. The JSON response shows 0-based indices.
+  </Step>
+  
+  <Step title="Dismiss">
+    Use the index + 1 (convert to 1-based) to dismiss:
+    
+    ```bash
+    agent-desktop dismiss-notification <INDEX+1>
+    ```
+  </Step>
+</Steps>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Clear Specific Notifications">
+    Dismiss notifications selectively while keeping others:
+    
+    ```bash
+    agent-desktop list-notifications
+    agent-desktop dismiss-notification 2
+    agent-desktop dismiss-notification 1
+    ```
+  </Accordion>
+
+  <Accordion title="Dismiss Notifications from One App">
+    Clear all Slack notifications one by one:
+    
+    ```bash
+    agent-desktop list-notifications --app Slack
+    agent-desktop dismiss-notification 1 --app Slack
+    agent-desktop dismiss-notification 1 --app Slack  # indices shift down
+    ```
+  </Accordion>
+
+  <Accordion title="Automated Notification Cleanup">
+    Dismiss old notifications in a script:
+    
+    ```bash
+    # Dismiss all notifications older than 1 hour
+    # (requires parsing timestamps if available)
+    agent-desktop list-notifications | jq -r '.data.notifications[] | select(.timestamp < ...) | .index + 1' | xargs -I {} agent-desktop dismiss-notification {}
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+Common error codes:
+
+- `ELEMENT_NOT_FOUND`: Index out of range or notification already dismissed
+- `INVALID_ARGS`: Index is 0 or negative
+- `PERM_DENIED`: macOS accessibility permission not granted
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "dismiss-notification",
+  "error": {
+    "code": "ELEMENT_NOT_FOUND",
+    "message": "No notification found at index 5",
+    "suggestion": "Run 'list-notifications' to see current indices"
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- The command uses **1-based indexing** for user convenience, but the JSON response shows the original 0-based index
+- After dismissing a notification, all subsequent indices shift down by 1
+- If you dismiss multiple notifications, work from highest to lowest index to avoid shifting issues
+- The `--app` filter is applied before indexing, so index 1 refers to the first notification from that app
+
+## Related Commands
+
+- [list-notifications](/api/list-notifications) - List all notifications to get indices
+- [dismiss-all-notifications](/api/dismiss-all-notifications) - Dismiss all notifications at once
+- [notification-action](/api/notification-action) - Click an action button instead of dismissing

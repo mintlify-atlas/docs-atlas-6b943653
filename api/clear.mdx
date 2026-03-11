@@ -1,0 +1,164 @@
+---
+title: clear
+description: Clear element value to empty string
+---
+
+## Overview
+
+Clears an element's value by setting it to an empty string. This is the preferred way to reset text fields, search boxes, and other input elements before entering new text.
+
+## Syntax
+
+```bash
+agent-desktop clear <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clear",
+  "data": {
+    "action": "clear",
+    "ref_id": "@e5",
+    "post_state": {
+      "role": "textfield",
+      "value": "",
+      "states": ["enabled", "focused"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`clear`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was cleared
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after clearing
+  - `role` (string): Element role
+  - `value` (string): Empty string
+  - `states` (string[]): Current states
+</ResponseField>
+
+## AX-First Strategy
+
+The clear command follows this priority:
+
+1. Set `kAXValueAttribute` to empty string via accessibility
+2. Select all (`cmd+a`) and delete
+3. Focus and press delete until empty
+
+## Usage Examples
+
+### Clear and Type New Text
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role textfield --name "Search"
+agent-desktop clear @e3
+agent-desktop type @e3 "new search query"
+```
+
+### Clear Form Field
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop clear @e7
+```
+
+### Reset Search Field
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role textfield --name "Search"
+agent-desktop clear @e2
+agent-desktop wait 200  # Wait for search to reset
+agent-desktop snapshot -i
+```
+
+### Clear Multiple Fields
+
+```bash
+agent-desktop batch '[
+  {"command": "clear", "args": {"ref_id": "@e3"}},
+  {"command": "clear", "args": {"ref_id": "@e5"}},
+  {"command": "clear", "args": {"ref_id": "@e8"}}
+]'
+```
+
+## Common Use Cases
+
+- **Form Reset**: Clear all fields before filling
+- **Search Reset**: Clear search box to show all results
+- **Text Replacement**: Clear before typing new content
+- **Error Recovery**: Clear invalid input before retry
+
+## Clear vs Select All + Delete
+
+| Method | Speed | Triggers Events | Use Case |
+|--------|-------|----------------|----------|
+| `clear` | Fast | Minimal | Direct value reset |
+| `cmd+a` + `delete` | Slower | Full keyboard events | When deletion events needed |
+
+## Supported Element Types
+
+| Role | Clears To |
+|------|----------|
+| `textfield` | Empty string |
+| `textarea` | Empty string |
+| `searchfield` | Empty string |
+| `combobox` | No selection |
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support value attribute | Try `cmd+a` + `delete` manually |
+| `ACTION_NOT_SUPPORTED` | Element type doesn't have clearable value | Wrong element type |
+
+## Clear vs Set-Value
+
+Both can clear a field, but differ in approach:
+
+```bash
+# Using clear
+agent-desktop clear @e5
+
+# Using set-value
+agent-desktop set-value @e5 ""
+```
+
+**Prefer `clear`:**
+- More explicit intent
+- Optimized for clearing
+- May trigger field-specific clear behaviors
+
+**Use `set-value ""`:**
+- Part of a value-setting chain
+- Combined with other set operations
+
+## Notes
+
+- Clear is idempotent; safe to call on empty fields
+- Some apps may show placeholder text after clear
+- For search fields, clear may trigger result refresh
+- Always snapshot after clear to capture state changes
+- Does not move cursor position
+- May trigger change events depending on implementation

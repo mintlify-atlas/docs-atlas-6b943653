@@ -1,0 +1,169 @@
+---
+title: clipboard-get
+description: Read plain-text content from the system clipboard
+---
+
+Read the current plain-text content from the macOS system clipboard (pasteboard).
+
+## Usage
+
+```bash
+agent-desktop clipboard-get
+```
+
+## Parameters
+
+This command takes no parameters.
+
+## Response
+
+<ResponseField name="text" type="string" required>
+  The plain-text content currently in the clipboard. Returns an empty string if the clipboard is empty or contains only non-text data.
+</ResponseField>
+
+## Examples
+
+### Read Clipboard Content
+
+```bash
+agent-desktop clipboard-get
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clipboard-get",
+  "data": {
+    "text": "Hello, world!"
+  }
+}
+```
+</ResponseExample>
+
+### Empty Clipboard
+
+```bash
+agent-desktop clipboard-get
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clipboard-get",
+  "data": {
+    "text": ""
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Copy-Paste Automation">
+    Read content a user has copied:
+    
+    ```bash
+    # User copies text manually (cmd+c)
+    TEXT=$(agent-desktop clipboard-get | jq -r '.data.text')
+    echo "User copied: $TEXT"
+    ```
+  </Accordion>
+
+  <Accordion title="Extract Data from UI">
+    Use native copy actions to extract data:
+    
+    ```bash
+    # Select text in an app
+    agent-desktop click @e3
+    agent-desktop press cmd+a
+    agent-desktop press cmd+c
+    
+    # Read the copied text
+    agent-desktop clipboard-get
+    ```
+  </Accordion>
+
+  <Accordion title="Inter-App Data Transfer">
+    Transfer data between applications via clipboard:
+    
+    ```bash
+    # Copy from source app
+    agent-desktop click @e5
+    agent-desktop press cmd+c
+    
+    # Read clipboard
+    DATA=$(agent-desktop clipboard-get | jq -r '.data.text')
+    
+    # Paste to destination app
+    agent-desktop focus-window --app TextEdit
+    agent-desktop clipboard-set "$DATA"
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Clipboard Monitoring">
+    Monitor clipboard for changes:
+    
+    ```bash
+    # Store initial clipboard state
+    PREV=$(agent-desktop clipboard-get | jq -r '.data.text')
+    
+    while true; do
+      sleep 1
+      CURR=$(agent-desktop clipboard-get | jq -r '.data.text')
+      if [ "$CURR" != "$PREV" ]; then
+        echo "Clipboard changed: $CURR"
+        PREV="$CURR"
+      fi
+    done
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Clipboard Data Types
+
+This command only reads **plain text** from the clipboard. Other data types are not supported:
+
+- **Images**: Not returned (use screenshot commands instead)
+- **Files**: Not returned (file paths may be returned as text if copied as text)
+- **Rich text**: Formatting is stripped; only plain text is returned
+- **HTML**: HTML source may be returned if copied as plain text
+
+If the clipboard contains only non-text data (e.g., an image), the `text` field will be an empty string.
+
+## Permissions
+
+Reading the clipboard requires macOS accessibility permission. If permission is not granted, the command will return a `PERM_DENIED` error:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "clipboard-get",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- The clipboard is a system-wide resource; reading it does not modify its contents
+- Newlines and special characters are preserved in the returned text
+- The clipboard content is read synchronously; there is no polling or waiting
+- If multiple clipboard items exist (macOS supports clipboard history in some apps), only the most recent item is returned
+
+## Related Commands
+
+- [clipboard-set](/api/clipboard-set) - Write text to the clipboard
+- [clipboard-clear](/api/clipboard-clear) - Clear the clipboard
+- [press](/api/press) - Send keyboard shortcuts like cmd+c to copy

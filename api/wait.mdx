@@ -1,0 +1,445 @@
+---
+title: wait
+description: Pause execution or wait for UI conditions
+---
+
+Pause execution for a fixed duration, or block until a UI condition is met (element appears, window opens, text appears, menu opens/closes, or notification arrives).
+
+## Usage
+
+```bash
+# Fixed duration
+agent-desktop wait <MS>
+
+# Wait for condition
+agent-desktop wait --element <ref> [--timeout MS]
+agent-desktop wait --window <title> [--timeout MS]
+agent-desktop wait --text <text> [--app APP] [--timeout MS]
+agent-desktop wait --menu [--app APP] [--timeout MS]
+agent-desktop wait --menu-closed [--app APP] [--timeout MS]
+agent-desktop wait --notification [--app APP] [--text TEXT] [--timeout MS]
+```
+
+## Parameters
+
+<ParamField path="MS" type="number" optional>
+  Milliseconds to pause. If provided, all other options are ignored.
+  
+  ```bash
+  agent-desktop wait 500  # pause 500ms
+  ```
+</ParamField>
+
+<ParamField path="--element" type="string" optional>
+  Block until this element ref appears in the accessibility tree. Polls every 100ms.
+  
+  ```bash
+  agent-desktop wait --element @e5 --timeout 5000
+  ```
+</ParamField>
+
+<ParamField path="--window" type="string" optional>
+  Block until a window with this title (partial match) appears. Polls every 100ms.
+  
+  ```bash
+  agent-desktop wait --window "Save As" --timeout 10000
+  ```
+</ParamField>
+
+<ParamField path="--text" type="string" optional>
+  Block until this text appears in the app's accessibility tree (case-insensitive). Polls every 200ms.
+  
+  ```bash
+  agent-desktop wait --text "Loading complete" --app Safari --timeout 30000
+  ```
+</ParamField>
+
+<ParamField path="--menu" type="boolean" optional>
+  Block until a context menu is open. Polls every 100ms.
+  
+  ```bash
+  agent-desktop wait --menu --timeout 3000
+  ```
+</ParamField>
+
+<ParamField path="--menu-closed" type="boolean" optional>
+  Block until the context menu is dismissed. Polls every 100ms.
+  
+  ```bash
+  agent-desktop wait --menu-closed --timeout 3000
+  ```
+</ParamField>
+
+<ParamField path="--notification" type="boolean" optional>
+  Block until a new notification arrives. Polls every 500ms.
+  
+  ```bash
+  agent-desktop wait --notification --timeout 60000
+  ```
+</ParamField>
+
+<ParamField path="--app" type="string" optional>
+  Scope element, text, menu, or notification waits to this application.
+  
+  ```bash
+  agent-desktop wait --text "Done" --app TextEdit
+  ```
+</ParamField>
+
+<ParamField path="--timeout" type="number" optional default="30000">
+  Timeout in milliseconds for condition waits. Defaults to 30000ms (30 seconds).
+  
+  ```bash
+  agent-desktop wait --element @e5 --timeout 10000
+  ```
+</ParamField>
+
+## Response
+
+### Fixed Duration Wait
+
+<ResponseField name="waited_ms" type="number" required>
+  The number of milliseconds waited
+</ResponseField>
+
+### Element Wait
+
+<ResponseField name="found" type="boolean" required>
+  Always `true` if element was found before timeout
+</ResponseField>
+
+<ResponseField name="ref" type="string" required>
+  The element ref that was found
+</ResponseField>
+
+<ResponseField name="elapsed_ms" type="number" required>
+  Time in milliseconds until element appeared
+</ResponseField>
+
+### Window Wait
+
+<ResponseField name="found" type="boolean" required>
+  Always `true` if window was found before timeout
+</ResponseField>
+
+<ResponseField name="window" type="object" required>
+  The window object that matched
+  
+  <Expandable title="window object">
+    <ResponseField name="id" type="string">
+      Window ID
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Window title
+    </ResponseField>
+    <ResponseField name="app_name" type="string">
+      Application name
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="elapsed_ms" type="number" required>
+  Time in milliseconds until window appeared
+</ResponseField>
+
+### Text Wait
+
+<ResponseField name="found" type="boolean" required>
+  Always `true` if text was found before timeout
+</ResponseField>
+
+<ResponseField name="text" type="string" required>
+  The text that was searched for
+</ResponseField>
+
+<ResponseField name="ref" type="string" optional>
+  Element ref where the text was found (if element has a ref)
+</ResponseField>
+
+<ResponseField name="role" type="string" required>
+  Role of the element containing the text
+</ResponseField>
+
+<ResponseField name="elapsed_ms" type="number" required>
+  Time in milliseconds until text appeared
+</ResponseField>
+
+### Menu Wait
+
+<ResponseField name="found" type="boolean" required>
+  Always `true` if menu condition was met before timeout
+</ResponseField>
+
+<ResponseField name="elapsed_ms" type="number" required>
+  Time in milliseconds until menu opened/closed
+</ResponseField>
+
+### Notification Wait
+
+<ResponseField name="condition" type="string" required>
+  Always `"notification"`
+</ResponseField>
+
+<ResponseField name="matched" type="boolean" required>
+  Always `true` if a new notification arrived
+</ResponseField>
+
+<ResponseField name="notification" type="object" required>
+  The notification that arrived
+  
+  <Expandable title="notification object">
+    <ResponseField name="index" type="number">
+      Notification index
+    </ResponseField>
+    <ResponseField name="app_name" type="string">
+      App that sent the notification
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Notification title
+    </ResponseField>
+    <ResponseField name="body" type="string" optional>
+      Notification body
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="elapsed_ms" type="number" required>
+  Time in milliseconds until notification arrived
+</ResponseField>
+
+## Examples
+
+### Fixed Duration
+
+```bash
+agent-desktop wait 1000
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "waited_ms": 1000
+  }
+}
+```
+</ResponseExample>
+
+### Wait for Element
+
+```bash
+agent-desktop wait --element @e5 --timeout 5000
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "found": true,
+    "ref": "@e5",
+    "elapsed_ms": 1234
+  }
+}
+```
+</ResponseExample>
+
+### Wait for Window
+
+```bash
+agent-desktop wait --window "Save As" --timeout 10000
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "found": true,
+    "window": {
+      "id": "w-1234",
+      "title": "Save As",
+      "app_name": "TextEdit"
+    },
+    "elapsed_ms": 2345
+  }
+}
+```
+</ResponseExample>
+
+### Wait for Text
+
+```bash
+agent-desktop wait --text "Loading complete" --app Safari
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "found": true,
+    "text": "Loading complete",
+    "ref": "@e12",
+    "role": "static_text",
+    "elapsed_ms": 3456
+  }
+}
+```
+</ResponseExample>
+
+### Wait for Menu
+
+```bash
+agent-desktop wait --menu --timeout 3000
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "found": true,
+    "elapsed_ms": 450
+  }
+}
+```
+</ResponseExample>
+
+### Wait for Notification
+
+```bash
+agent-desktop wait --notification --app Slack --timeout 60000
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "wait",
+  "data": {
+    "condition": "notification",
+    "matched": true,
+    "notification": {
+      "index": 2,
+      "app_name": "Slack",
+      "title": "#engineering",
+      "body": "New message"
+    },
+    "elapsed_ms": 15234
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Wait Between Actions">
+    Pause to let UI settle:
+    
+    ```bash
+    agent-desktop click @e3
+    agent-desktop wait 500
+    agent-desktop snapshot -i
+    ```
+  </Accordion>
+
+  <Accordion title="Wait for Dialog">
+    Wait for a Save dialog to appear:
+    
+    ```bash
+    agent-desktop press cmd+s
+    agent-desktop wait --window "Save" --timeout 5000
+    agent-desktop snapshot -i
+    ```
+  </Accordion>
+
+  <Accordion title="Wait for Loading">
+    Wait for a loading indicator to disappear:
+    
+    ```bash
+    agent-desktop wait --text "Loading complete" --app Safari
+    ```
+  </Accordion>
+
+  <Accordion title="Wait for Menu">
+    Right-click and wait for menu:
+    
+    ```bash
+    agent-desktop right-click @e3
+    agent-desktop wait --menu
+    agent-desktop snapshot --surface menu
+    ```
+  </Accordion>
+
+  <Accordion title="Wait for Notification">
+    Wait for a deployment notification:
+    
+    ```bash
+    agent-desktop wait --notification --text "deployment complete" --timeout 300000
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Wait Conditions
+
+| Condition | Poll Interval | Use Case |
+|-----------|---------------|----------|
+| `ms` | N/A | Fixed pause |
+| `--element` | 100ms | Element appears in tree |
+| `--window` | 100ms | Window opens |
+| `--text` | 200ms | Text appears anywhere |
+| `--menu` | 100ms | Context menu opens |
+| `--menu-closed` | 100ms | Context menu closes |
+| `--notification` | 500ms | New notification arrives |
+
+## Error Handling
+
+Common error codes:
+
+- `TIMEOUT`: Condition not met within timeout period
+- `INVALID_ARGS`: No valid wait condition provided
+- `STALE_REF`: Element ref in `--element` is not in the current refmap
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "wait",
+  "error": {
+    "code": "TIMEOUT",
+    "message": "Element @e5 not found within 5000ms",
+    "suggestion": "Increase --timeout or verify element will appear"
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- Fixed duration waits (`wait <MS>`) are precise and use `std::thread::sleep`
+- Condition waits poll at fixed intervals and may overshoot slightly
+- Text matching is case-insensitive and checks name, value, title, and description fields
+- Window title matching is a partial substring match
+- Notification waits detect **new** notifications only (compares against baseline)
+- Menu waits check for any open context menu in the specified app (or focused app)
+
+## Related Commands
+
+- [snapshot](/api/snapshot) - Capture UI state after waiting
+- [list-notifications](/api/list-notifications) - List notifications instead of waiting
+- [list-windows](/api/list-windows) - List windows instead of waiting

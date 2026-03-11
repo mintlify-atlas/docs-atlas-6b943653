@@ -1,0 +1,123 @@
+---
+title: mouse-click
+description: Click at absolute screen coordinates
+---
+
+## Syntax
+
+```bash
+agent-desktop mouse-click --xy <x,y> [--button <button>] [--count <n>]
+```
+
+## Description
+
+Performs a mouse click at absolute screen coordinates. Supports left, right, and middle buttons, as well as double and triple clicks.
+
+<Tip>
+  For accessibility-first element clicking, use [click](/api/click) which attempts AX API actions before falling back to mouse simulation.
+</Tip>
+
+## Parameters
+
+<ParamField path="--xy" type="string" required>
+  Absolute screen coordinates in format `x,y` (e.g., `500,300`). Coordinates are measured from the top-left corner of the primary display.
+</ParamField>
+
+<ParamField path="--button" type="string" default="left">
+  Mouse button to use:
+  - `left` - Primary button
+  - `right` - Secondary button (context menu)
+  - `middle` - Middle button (scroll wheel click)
+</ParamField>
+
+<ParamField path="--count" type="number" default="1">
+  Number of clicks to perform:
+  - `1` - Single click
+  - `2` - Double click
+  - `3` - Triple click
+</ParamField>
+
+## Examples
+
+### Single left-click
+
+```bash
+agent-desktop mouse-click --xy 500,300
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "mouse-click",
+  "data": {
+    "clicked": true,
+    "x": 500.0,
+    "y": 300.0,
+    "count": 1
+  }
+}
+```
+
+### Right-click for context menu
+
+```bash
+agent-desktop mouse-click --xy 500,300 --button right
+```
+
+**Response:**
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "mouse-click",
+  "data": {
+    "clicked": true,
+    "x": 500.0,
+    "y": 300.0,
+    "count": 1
+  }
+}
+```
+
+### Double-click
+
+```bash
+agent-desktop mouse-click --xy 500,300 --count 2
+```
+
+Double-clicks at the coordinates (useful for opening files or selecting words).
+
+### Triple-click with middle button
+
+```bash
+agent-desktop mouse-click --xy 500,300 --button middle --count 3
+```
+
+## Use Cases
+
+- Click precise pixel coordinates not exposed via accessibility
+- Interact with custom-rendered UI (games, design tools)
+- Right-click to open context menus at specific locations
+- Double-click to open files or select words
+- Triple-click to select entire lines or paragraphs
+- Middle-click for browser tab operations or paste
+
+## Button Types
+
+| Button | Common Use |
+|--------|------------|
+| `left` | Primary selection, button activation |
+| `right` | Context menus, secondary actions |
+| `middle` | Scroll wheel click, paste on Linux |
+
+## Related Commands
+
+- [click](/api/click) - AX-first element clicking with ref
+- [right-click](/api/right-click) - Right-click element by ref
+- [double-click](/api/double-click) - Double-click element by ref
+- [mouse-down](/api/mouse-down) - Press without release
+- [mouse-up](/api/mouse-up) - Release button

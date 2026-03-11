@@ -1,0 +1,337 @@
+---
+title: find
+description: Search elements by role, name, value, or text content
+---
+
+Search the accessibility tree for elements matching specific criteria. Supports filtering by role, name, value, and text content. Can return all matches, a count, or specific matches by index.
+
+## Usage
+
+```bash
+agent-desktop find [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="--app" type="string">
+  Filter search to a specific application by name. If omitted, searches the focused application.
+</ParamField>
+
+<ParamField path="--role" type="string">
+  Match by accessibility role (e.g., `button`, `textfield`, `checkbox`, `link`, `menuitem`).
+</ParamField>
+
+<ParamField path="--name" type="string">
+  Match by accessible name or label. Case-insensitive substring match.
+</ParamField>
+
+<ParamField path="--value" type="string">
+  Match by current value. Case-insensitive substring match.
+</ParamField>
+
+<ParamField path="--text" type="string">
+  Match by text in name, value, title, or description. Case-insensitive substring match.
+</ParamField>
+
+<ParamField path="--count" type="boolean" default="false">
+  Return only the match count, not the actual elements.
+</ParamField>
+
+<ParamField path="--first" type="boolean" default="false">
+  Return only the first match.
+</ParamField>
+
+<ParamField path="--last" type="boolean" default="false">
+  Return only the last match.
+</ParamField>
+
+<ParamField path="--nth" type="number">
+  Return the Nth match (0-indexed).
+</ParamField>
+
+## Response (Default)
+
+<ResponseField name="matches" type="array">
+  Array of matching elements.
+  
+  <Expandable title="properties">
+    <ResponseField name="ref" type="string" optional>
+      Reference ID (e.g., `@e3`) if the element is interactive.
+    </ResponseField>
+    
+    <ResponseField name="role" type="string">
+      Accessibility role.
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Display name or description. Falls back to `(unnamed <role>)` if no name is available.
+    </ResponseField>
+    
+    <ResponseField name="value" type="string" optional>
+      Current value (for text fields, sliders, etc.).
+    </ResponseField>
+    
+    <ResponseField name="interactive" type="boolean">
+      Whether this element received a ref ID (is interactive).
+    </ResponseField>
+    
+    <ResponseField name="path" type="array">
+      Array of ancestor labels showing the element's location in the tree (e.g., `["window:Documents", "group:Toolbar"]`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Response (Count Mode)
+
+<ResponseField name="count" type="number">
+  Total number of matching elements.
+</ResponseField>
+
+## Response (First/Last/Nth Mode)
+
+<ResponseField name="match" type="object" optional>
+  Single matching element (same structure as elements in `matches` array), or `null` if no match found.
+</ResponseField>
+
+## Examples
+
+### Find all buttons
+
+```bash
+agent-desktop find --role button --app Finder
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "matches": [
+      {
+        "ref": "@e1",
+        "role": "button",
+        "name": "Back",
+        "interactive": true,
+        "path": ["window:Documents", "group:Toolbar"]
+      },
+      {
+        "ref": "@e5",
+        "role": "button",
+        "name": "Forward",
+        "interactive": true,
+        "path": ["window:Documents", "group:Toolbar"]
+      },
+      {
+        "ref": "@e12",
+        "role": "button",
+        "name": "List View",
+        "interactive": true,
+        "path": ["window:Documents", "group:View Options"]
+      }
+    ]
+  }
+}
+```
+
+### Find element by name
+
+```bash
+agent-desktop find --name "Save" --app TextEdit
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "matches": [
+      {
+        "ref": "@e8",
+        "role": "button",
+        "name": "Save",
+        "interactive": true,
+        "path": ["window:Untitled", "group:Toolbar"]
+      },
+      {
+        "ref": "@e23",
+        "role": "menuitem",
+        "name": "Save",
+        "interactive": true,
+        "path": ["menubar", "menu:File"]
+      }
+    ]
+  }
+}
+```
+
+### Find text field with specific value
+
+```bash
+agent-desktop find --role textfield --value "quarterly report"
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "matches": [
+      {
+        "ref": "@e7",
+        "role": "textfield",
+        "name": "File Name",
+        "value": "quarterly report",
+        "interactive": true,
+        "path": ["window:Save", "group:Content"]
+      }
+    ]
+  }
+}
+```
+
+### Count matches
+
+```bash
+agent-desktop find --role checkbox --count --app "System Settings"
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "count": 12
+  }
+}
+```
+
+### Get first match
+
+```bash
+agent-desktop find --text "OK" --first
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "match": {
+      "ref": "@e14",
+      "role": "button",
+      "name": "OK",
+      "interactive": true,
+      "path": ["window:Preferences", "group:Dialog"]
+    }
+  }
+}
+```
+
+### Get Nth match
+
+```bash
+agent-desktop find --role menuitem --nth 2
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "match": {
+      "ref": "@e11",
+      "role": "menuitem",
+      "name": "Open…",
+      "interactive": true,
+      "path": ["menubar", "menu:File"]
+    }
+  }
+}
+```
+
+### No matches found
+
+```bash
+agent-desktop find --name "NonExistent"
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "matches": []
+  }
+}
+```
+
+### First match when none exist
+
+```bash
+agent-desktop find --name "NonExistent" --first
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "find",
+  "data": {
+    "match": null
+  }
+}
+```
+
+## Error Cases
+
+### Application not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "find",
+  "error": {
+    "code": "APP_NOT_FOUND",
+    "message": "No windows found for app 'InvalidApp'"
+  }
+}
+```
+
+### Permission denied
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "find",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal"
+  }
+}
+```
+
+## Notes
+
+- All text matching is **case-insensitive** and uses **substring matching**.
+- The `--text` parameter searches across name, value, title, AND description fields.
+- Multiple filter parameters are combined with **AND** logic (all must match).
+- The search traverses the entire accessibility tree in **depth-first order**.
+- Only the **first snapshot** is taken; the command does not poll for changes.
+- The `path` field shows the element's location using the format `role:name` for each ancestor.
+- `--count`, `--first`, `--last`, and `--nth` are mutually exclusive.
+
+## See Also
+
+- [snapshot](/api/snapshot) - Capture the full accessibility tree
+- [get](/api/get) - Read element properties by ref
+- [is](/api/is) - Check element states

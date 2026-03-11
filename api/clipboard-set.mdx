@@ -1,0 +1,218 @@
+---
+title: clipboard-set
+description: Write plain-text content to the system clipboard
+---
+
+Write plain-text content to the macOS system clipboard (pasteboard), replacing any existing content.
+
+## Usage
+
+```bash
+agent-desktop clipboard-set <TEXT>
+```
+
+## Parameters
+
+<ParamField path="TEXT" type="string" required>
+  The plain-text content to write to the clipboard. Supports newlines, special characters, and Unicode.
+  
+  ```bash
+  agent-desktop clipboard-set "Hello, world!"
+  ```
+  
+  For multi-line text, use shell quoting:
+  
+  ```bash
+  agent-desktop clipboard-set "Line 1
+Line 2
+Line 3"
+  ```
+</ParamField>
+
+## Response
+
+<ResponseField name="ok" type="boolean" required>
+  Always `true` if the operation succeeded
+</ResponseField>
+
+## Examples
+
+### Set Simple Text
+
+```bash
+agent-desktop clipboard-set "Hello, world!"
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clipboard-set",
+  "data": {
+    "ok": true
+  }
+}
+```
+</ResponseExample>
+
+### Set Multi-Line Text
+
+```bash
+agent-desktop clipboard-set "First line
+Second line
+Third line"
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "clipboard-set",
+  "data": {
+    "ok": true
+  }
+}
+```
+</ResponseExample>
+
+### Set from Variable
+
+```bash
+CONTENT="Some dynamic content"
+agent-desktop clipboard-set "$CONTENT"
+```
+
+### Set from File
+
+```bash
+agent-desktop clipboard-set "$(cat file.txt)"
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Programmatic Copy">
+    Copy data to clipboard without user interaction:
+    
+    ```bash
+    # Copy computed result
+    RESULT=$(curl -s https://api.example.com/data | jq -r '.value')
+    agent-desktop clipboard-set "$RESULT"
+    ```
+  </Accordion>
+
+  <Accordion title="Paste Automation">
+    Set clipboard content before pasting into an app:
+    
+    ```bash
+    agent-desktop clipboard-set "user@example.com"
+    agent-desktop focus-window --app Safari
+    agent-desktop click @e5  # click email field
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Data Transfer Between Apps">
+    Transfer data via clipboard:
+    
+    ```bash
+    # Read from source
+    DATA=$(agent-desktop get @e3 value)
+    
+    # Write to clipboard
+    agent-desktop clipboard-set "$DATA"
+    
+    # Paste to destination
+    agent-desktop focus-window --app TextEdit
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Bulk Paste Operations">
+    Paste multiple values in sequence:
+    
+    ```bash
+    VALUES=("value1" "value2" "value3")
+    
+    for val in "${VALUES[@]}"; do
+      agent-desktop clipboard-set "$val"
+      agent-desktop click @e5
+      agent-desktop press cmd+v
+      agent-desktop press tab
+    done
+    ```
+  </Accordion>
+
+  <Accordion title="Template Expansion">
+    Copy templated content:
+    
+    ```bash
+    NAME="John Doe"
+    EMAIL="john@example.com"
+    TEMPLATE="Hello $NAME,\n\nYour email is: $EMAIL"
+    
+    agent-desktop clipboard-set "$TEMPLATE"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Clipboard Behavior
+
+- **Replaces existing content**: Any previous clipboard content is overwritten
+- **Plain text only**: This command only sets plain text; images, files, and rich text are not supported
+- **System-wide**: The clipboard is shared across all applications
+- **Persistent**: Clipboard content remains until replaced or cleared
+- **Newlines preserved**: Multi-line text is preserved exactly as provided
+
+## Special Characters
+
+The command handles special characters correctly:
+
+```bash
+# Unicode
+agent-desktop clipboard-set "Hello 世界 🌍"
+
+# Quotes
+agent-desktop clipboard-set 'Text with "quotes"'
+
+# Backslashes
+agent-desktop clipboard-set "Path: C:\\Users\\Name"
+
+# Newlines
+agent-desktop clipboard-set $'Line 1\nLine 2'  # bash $'...' syntax
+```
+
+## Permissions
+
+Setting the clipboard requires macOS accessibility permission. If permission is not granted, the command will return a `PERM_DENIED` error:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "clipboard-set",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- The operation is synchronous and completes immediately
+- Maximum clipboard size is limited by macOS (typically several MB for text)
+- The clipboard content is available to all apps immediately after the command succeeds
+- Use `clipboard-clear` to explicitly empty the clipboard
+
+## Related Commands
+
+- [clipboard-get](/api/clipboard-get) - Read text from the clipboard
+- [clipboard-clear](/api/clipboard-clear) - Clear the clipboard
+- [press](/api/press) - Send keyboard shortcuts like cmd+v to paste
+- [type](/api/type) - Type text directly into an element (alternative to clipboard+paste)

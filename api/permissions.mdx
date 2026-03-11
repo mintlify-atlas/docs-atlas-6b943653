@@ -1,0 +1,267 @@
+---
+title: permissions
+description: Check or request macOS accessibility permission
+---
+
+Check the current accessibility permission status, or trigger the macOS system dialog to request permission.
+
+## Usage
+
+```bash
+# Check permission status
+agent-desktop permissions
+
+# Request permission (trigger system dialog)
+agent-desktop permissions --request
+```
+
+## Parameters
+
+<ParamField path="--request" type="boolean" optional default="false">
+  Trigger the macOS system permission dialog. If permission is already granted, this has no effect.
+  
+  ```bash
+  agent-desktop permissions --request
+  ```
+</ParamField>
+
+## Response
+
+### Check Mode (no --request)
+
+<ResponseField name="granted" type="boolean" required>
+  `true` if accessibility permission is granted, `false` otherwise
+</ResponseField>
+
+<ResponseField name="suggestion" type="string" optional>
+  Instructions on how to grant permission. Only present if `granted` is `false`.
+</ResponseField>
+
+### Request Mode (with --request)
+
+<ResponseField name="requested" type="boolean" required>
+  Always `true`
+</ResponseField>
+
+<ResponseField name="note" type="string" required>
+  Confirmation message that the permission dialog was triggered
+</ResponseField>
+
+## Examples
+
+### Check Permission Status
+
+```bash
+agent-desktop permissions
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "permissions",
+  "data": {
+    "granted": true
+  }
+}
+```
+</ResponseExample>
+
+### Permission Not Granted
+
+```bash
+agent-desktop permissions
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "permissions",
+  "data": {
+    "granted": false,
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+  }
+}
+```
+</ResponseExample>
+
+### Request Permission
+
+```bash
+agent-desktop permissions --request
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "permissions",
+  "data": {
+    "requested": true,
+    "note": "Permission dialog triggered via --request flag"
+  }
+}
+```
+</ResponseExample>
+
+## macOS Accessibility Permission
+
+Agent-desktop requires macOS accessibility permission to:
+- Read accessibility trees
+- Perform actions on UI elements
+- Send keyboard and mouse events
+- Read and write clipboard
+- Take screenshots
+- Interact with notifications
+
+### How to Grant Permission
+
+<Steps>
+  <Step title="Open System Settings">
+    Click the Apple menu and select **System Settings**
+  </Step>
+  
+  <Step title="Navigate to Accessibility">
+    Go to **Privacy & Security > Accessibility**
+  </Step>
+  
+  <Step title="Add Your Terminal">
+    Click the **+** button and add your terminal app:
+    - Terminal.app
+    - iTerm2
+    - Warp
+    - Alacritty
+    - Or your preferred terminal
+  </Step>
+  
+  <Step title="Verify">
+    Run `agent-desktop permissions` to confirm:
+    
+    ```bash
+    agent-desktop permissions
+    # Should return {"granted": true}
+    ```
+  </Step>
+</Steps>
+
+### Using --request Flag
+
+The `--request` flag triggers the macOS system permission dialog:
+
+```bash
+agent-desktop permissions --request
+```
+
+This is equivalent to the first time an accessibility API is called. The system will show a dialog:
+
+> **"Terminal" would like to control this computer using accessibility features.**
+> 
+> Grant access to this application in System Settings.
+
+Click **Open System Settings** and follow the steps above.
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Pre-Flight Check">
+    Verify permission before running commands:
+    
+    ```bash
+    if [ "$(agent-desktop permissions | jq -r '.data.granted')" = "false" ]; then
+      echo "Error: Accessibility permission required"
+      echo "Run: agent-desktop permissions --request"
+      exit 1
+    fi
+    
+    # Proceed with commands
+    agent-desktop snapshot -i
+    ```
+  </Accordion>
+
+  <Accordion title="Interactive Setup">
+    Guide users through permission setup:
+    
+    ```bash
+    echo "Checking permissions..."
+    GRANTED=$(agent-desktop permissions | jq -r '.data.granted')
+    
+    if [ "$GRANTED" = "false" ]; then
+      echo "Accessibility permission required."
+      echo "Press Enter to open System Settings..."
+      read
+      agent-desktop permissions --request
+      echo "After granting permission, run this script again."
+      exit 0
+    fi
+    
+    echo "Permission granted. Starting automation..."
+    ```
+  </Accordion>
+
+  <Accordion title="CI/CD Setup">
+    Verify permission in CI environments:
+    
+    ```bash
+    # In CI setup script
+    agent-desktop permissions
+    if [ $? -ne 0 ]; then
+      echo "Accessibility permission not granted"
+      exit 1
+    fi
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Permission Granted But Commands Fail
+
+If `permissions` returns `granted: true` but commands fail with `PERM_DENIED`:
+
+1. **Restart your terminal**: Permission changes require restarting the terminal app
+2. **Check the correct terminal is added**: Ensure the terminal app you're using is in the Accessibility list
+3. **Try removing and re-adding**: Remove the terminal from Accessibility, restart, and add it again
+
+### System Dialog Doesn't Appear
+
+If `permissions --request` doesn't show a dialog:
+
+- Permission may already be granted (check with `permissions` without `--request`)
+- Open System Settings manually and add the terminal app
+
+### Multiple Terminal Apps
+
+If you use multiple terminal apps, each needs permission individually:
+
+```bash
+# If using iTerm2 and Terminal
+# Grant permission to both in System Settings
+```
+
+## Error Handling
+
+The `permissions` command itself rarely fails, but if it does:
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "permissions",
+  "error": {
+    "code": "INTERNAL",
+    "message": "Failed to check permission status",
+    "suggestion": "Try running with sudo or check system logs"
+  }
+}
+```
+</ResponseExample>
+
+## Related Commands
+
+- [status](/api/status) - Show overall system status including permissions
+- [version](/api/version) - Show version information

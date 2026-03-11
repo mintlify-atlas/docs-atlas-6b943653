@@ -1,0 +1,207 @@
+---
+title: Observation Commands
+description: Commands for inspecting UI elements, trees, and application state
+---
+
+Observation commands let you read the accessibility tree, search for elements, check properties, and capture screenshots. These are read-only operations that don't modify UI state.
+
+## Overview
+
+The observation workflow centers on `snapshot` — it captures the accessibility tree and assigns refs (`@e1`, `@e2`, etc.) to interactive elements. Other commands help you search, query properties, and verify element states.
+
+<CardGroup cols={2}>
+  <Card title="snapshot" icon="camera" href="/api-reference/snapshot">
+    Capture accessibility tree with @ref IDs
+  </Card>
+  <Card title="find" icon="magnifying-glass" href="/api-reference/find">
+    Search elements by role, name, value, or text
+  </Card>
+  <Card title="screenshot" icon="image" href="/api-reference/screenshot">
+    Take PNG screenshot of application window
+  </Card>
+  <Card title="get" icon="download" href="/api-reference/get">
+    Read element property (text, value, bounds, role)
+  </Card>
+  <Card title="is" icon="circle-check" href="/api-reference/is">
+    Check boolean state (visible, enabled, checked, focused)
+  </Card>
+  <Card title="list-surfaces" icon="list" href="/api-reference/list-surfaces">
+    List available surfaces (menu, sheet, popover, alert)
+  </Card>
+</CardGroup>
+
+## Core Workflow
+
+AI agents use this pattern:
+
+```bash
+# 1. Capture tree with refs
+agent-desktop snapshot --app Finder -i
+
+# 2. Decide on action based on tree structure
+# 3. Act using refs from snapshot
+agent-desktop click @e3
+
+# 4. Re-observe after UI changes
+agent-desktop snapshot -i
+```
+
+The `snapshot → decide → act → snapshot` loop is optimal for LLMs: refs provide deterministic element selection without re-querying the tree.
+
+## Common Patterns
+
+### Interactive Elements Only
+
+Use `-i` or `--interactive-only` to filter the tree to actionable elements:
+
+```bash
+agent-desktop snapshot --app Safari -i
+```
+
+This omits static text, labels, and containers — reducing token usage for AI agents.
+
+### Capture Open Menus
+
+Menus are ephemeral surfaces. Capture them with `--surface menu`:
+
+```bash
+agent-desktop snapshot --surface menu
+```
+
+Supported surface types: `window`, `focused`, `menu`, `menubar`, `sheet`, `popover`, `alert`.
+
+### Search Without Snapshot
+
+If you know what you're looking for, use `find` instead of parsing a full tree:
+
+```bash
+agent-desktop find --role button --app TextEdit
+agent-desktop find --name "OK" --app "System Settings"
+```
+
+Returns matching elements with refs assigned on-the-fly.
+
+### Check Element State
+
+Verify boolean properties before acting:
+
+```bash
+agent-desktop is @e7 checked
+agent-desktop is @e3 enabled
+agent-desktop is @e5 visible
+```
+
+Returns `{"ok": true, "data": {"result": true}}` or `false`.
+
+### Read Property Values
+
+Extract text, values, or bounds:
+
+```bash
+agent-desktop get @e3 value
+agent-desktop get @e5 text
+agent-desktop get @e2 bounds
+```
+
+Useful for validation or scraping workflows.
+
+### Screenshot for Vision Models
+
+Capture visual representation alongside the accessibility tree:
+
+```bash
+agent-desktop screenshot --app Finder
+```
+
+Returns base64-encoded PNG. Combine with `snapshot` for multimodal agent workflows.
+
+## Snapshot Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--app <NAME>` | focused app | Filter to a specific application |
+| `--window-id <ID>` | - | Filter to a specific window |
+| `-i` / `--interactive-only` | off | Only include interactive elements |
+| `--compact` | off | Omit empty structural nodes |
+| `--include-bounds` | off | Include pixel bounds (x, y, width, height) |
+| `--max-depth <N>` | 10 | Maximum tree depth |
+| `--surface <TYPE>` | window | `window`, `focused`, `menu`, `menubar`, `sheet`, `popover`, `alert` |
+
+## Examples
+
+```bash
+# Capture Safari tree with refs, interactive only
+agent-desktop snapshot --app Safari -i
+
+# Capture open context menu
+agent-desktop snapshot --surface menu
+
+# Find all buttons in TextEdit
+agent-desktop find --role button --app TextEdit
+
+# Check if checkbox is checked
+agent-desktop is @e7 checked
+
+# Get text field value
+agent-desktop get @e3 value
+
+# Screenshot Finder window
+agent-desktop screenshot --app Finder
+
+# List available surfaces in Notes
+agent-desktop list-surfaces --app Notes
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="UI Testing">
+    Verify element presence, states, and values during automated test runs:
+    
+    ```bash
+    agent-desktop find --role button --name "Submit"
+    agent-desktop is @e5 enabled
+    agent-desktop get @e3 value
+    ```
+  </Accordion>
+
+  <Accordion title="Data Extraction">
+    Scrape structured data from desktop applications:
+    
+    ```bash
+    agent-desktop snapshot --app Notes -i
+    agent-desktop get @e2 text
+    agent-desktop get @e5 value
+    ```
+  </Accordion>
+
+  <Accordion title="Multimodal AI Workflows">
+    Combine accessibility tree with screenshots for vision-language models:
+    
+    ```bash
+    agent-desktop snapshot --app Safari -i > tree.json
+    agent-desktop screenshot --app Safari > screenshot.json
+    # Feed both to GPT-4 Vision or Claude
+    ```
+  </Accordion>
+
+  <Accordion title="Element Discovery">
+    Explore unfamiliar apps to understand their structure:
+    
+    ```bash
+    agent-desktop snapshot --app Xcode --max-depth 5
+    agent-desktop find --role menuitem --app Xcode
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+Common error codes:
+
+- `APP_NOT_FOUND`: Application not running or has no windows
+- `ELEMENT_NOT_FOUND`: No element matched the ref or query
+- `PERM_DENIED`: Accessibility permission not granted
+- `TIMEOUT`: Wait condition expired (for `wait` commands)
+
+All commands return structured JSON with error codes and recovery hints.

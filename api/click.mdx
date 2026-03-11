@@ -1,0 +1,105 @@
+---
+title: click
+description: Click an element via accessibility press action
+---
+
+## Overview
+
+Clicks an element using the AX-first activation strategy. The command exhausts pure accessibility API methods before falling back to mouse events, ensuring maximum compatibility across applications.
+
+## Syntax
+
+```bash
+agent-desktop click <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "click",
+  "data": {
+    "action": "click",
+    "ref_id": "@e3"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`click`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was clicked
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after the action
+  - `role` (string): Element role
+  - `states` (string[]): Current element states
+  - `value` (string): Current element value
+</ResponseField>
+
+## AX-First Strategy
+
+The click command follows a 15-step activation chain:
+
+1. Try `kAXPressAction` on the element
+2. Try focus + return key
+3. Try clicking parent elements
+4. Fall back to mouse click at element center
+
+This ensures buttons, links, menu items, and other interactive elements respond correctly regardless of their implementation.
+
+## Usage Examples
+
+### Click a Button
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop click @e5
+```
+
+### Click and Chain Actions
+
+```bash
+agent-desktop click @e2
+agent-desktop wait 500
+agent-desktop snapshot -i
+```
+
+### Batch Click
+
+```bash
+agent-desktop batch '[
+  {"command": "click", "args": {"ref_id": "@e3"}},
+  {"command": "wait", "args": {"ms": 200}},
+  {"command": "click", "args": {"ref_id": "@e7"}}
+]'
+```
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element doesn't support press action | Try `set-value` or coordinate-based click |
+| `PERM_DENIED` | Accessibility permission not granted | Grant permission in System Settings |
+
+## Notes
+
+- Click is idempotent for most buttons but may trigger side effects
+- For form submissions, prefer clicking the submit button over pressing return
+- Use `double-click` for file selection, `triple-click` for text selection
+- Refs are snapshot-scoped; always refresh after UI changes

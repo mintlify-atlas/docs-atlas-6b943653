@@ -1,0 +1,221 @@
+---
+title: status
+description: Show adapter health, platform info, and permission state
+---
+
+Display the current system status including platform information, agent-desktop version, accessibility permission state, and the number of refs in the last snapshot.
+
+## Usage
+
+```bash
+agent-desktop status
+```
+
+## Parameters
+
+This command takes no parameters.
+
+## Response
+
+<ResponseField name="platform" type="string" required>
+  Operating system name (`"macos"`, `"windows"`, or `"linux"`)
+</ResponseField>
+
+<ResponseField name="version" type="string" required>
+  agent-desktop version string (e.g., `"0.1.0"`)
+</ResponseField>
+
+<ResponseField name="permissions" type="object" required>
+  Accessibility permission status
+  
+  <Expandable title="permissions object">
+    <ResponseField name="granted" type="boolean" required>
+      `true` if accessibility permission is granted, `false` otherwise
+    </ResponseField>
+    
+    <ResponseField name="suggestion" type="string" optional>
+      Guidance on how to grant permission. Only present if `granted` is `false`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="ref_count" type="number" optional>
+  Number of element refs in the last snapshot. Omitted if no snapshot has been taken yet.
+</ResponseField>
+
+## Examples
+
+### Status with Permission Granted
+
+```bash
+agent-desktop status
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "status",
+  "data": {
+    "platform": "macos",
+    "version": "0.1.0",
+    "permissions": {
+      "granted": true
+    },
+    "ref_count": 14
+  }
+}
+```
+</ResponseExample>
+
+### Status with Permission Denied
+
+```bash
+agent-desktop status
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "status",
+  "data": {
+    "platform": "macos",
+    "version": "0.1.0",
+    "permissions": {
+      "granted": false,
+      "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+    }
+  }
+}
+```
+</ResponseExample>
+
+### Status Before Any Snapshot
+
+```bash
+agent-desktop status
+```
+
+<ResponseExample>
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "status",
+  "data": {
+    "platform": "macos",
+    "version": "0.1.0",
+    "permissions": {
+      "granted": true
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Health Check">
+    Verify agent-desktop is working before running commands:
+    
+    ```bash
+    STATUS=$(agent-desktop status)
+    if [ "$(echo $STATUS | jq -r '.data.permissions.granted')" = "true" ]; then
+      echo "Ready to proceed"
+    else
+      echo "Permission required"
+      exit 1
+    fi
+    ```
+  </Accordion>
+
+  <Accordion title="Version Check">
+    Verify agent-desktop version in scripts:
+    
+    ```bash
+    VERSION=$(agent-desktop status | jq -r '.data.version')
+    echo "Using agent-desktop $VERSION"
+    ```
+  </Accordion>
+
+  <Accordion title="Ref Count Monitoring">
+    Check how many refs are available:
+    
+    ```bash
+    REF_COUNT=$(agent-desktop status | jq -r '.data.ref_count')
+    echo "Last snapshot has $REF_COUNT interactive elements"
+    ```
+  </Accordion>
+
+  <Accordion title="Platform Detection">
+    Detect the current platform:
+    
+    ```bash
+    PLATFORM=$(agent-desktop status | jq -r '.data.platform')
+    if [ "$PLATFORM" = "macos" ]; then
+      echo "Running on macOS"
+    fi
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Permission State
+
+The `permissions.granted` field indicates whether macOS accessibility permission is granted. If `false`, the `suggestion` field provides instructions:
+
+```json
+{
+  "permissions": {
+    "granted": false,
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal app"
+  }
+}
+```
+
+To grant permission:
+
+1. Open **System Settings**
+2. Go to **Privacy & Security > Accessibility**
+3. Add your terminal app (e.g., Terminal, iTerm2)
+4. Run `agent-desktop status` again to verify
+
+Alternatively, use the `permissions` command with `--request` to trigger the system dialog:
+
+```bash
+agent-desktop permissions --request
+```
+
+## Ref Count
+
+The `ref_count` field shows how many element refs were allocated in the last snapshot:
+
+- **Omitted**: No snapshot has been taken yet
+- **0**: Last snapshot had no interactive elements (or was run with `--interactive-only` on a static UI)
+- **N > 0**: N interactive elements have refs (`@e1` through `@eN`)
+
+This is useful for:
+- Verifying refs are available before using them in commands
+- Debugging empty snapshots
+- Monitoring UI complexity
+
+## Platform Support
+
+The `platform` field indicates the current OS:
+
+| Value | OS |
+|-------|----|
+| `macos` | macOS (fully supported) |
+| `windows` | Windows (Phase 2) |
+| `linux` | Linux (Phase 2) |
+
+Currently, only `macos` is fully implemented.
+
+## Related Commands
+
+- [permissions](/api/permissions) - Check or request accessibility permission
+- [version](/api/version) - Show version information only
+- [snapshot](/api/snapshot) - Take a snapshot to populate `ref_count`

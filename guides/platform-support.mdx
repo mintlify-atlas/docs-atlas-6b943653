@@ -1,0 +1,200 @@
+---
+title: "Platform Support"
+description: "Current and planned support across macOS, Windows, and Linux"
+---
+
+## Overview
+
+`agent-desktop` is built with cross-platform support in mind. **Phase 1** delivers full macOS functionality, with **Windows and Linux support planned** for Phase 2.
+
+## Platform Support Matrix
+
+<Note>
+  **Current Release:** Phase 1 - macOS only
+</Note>
+
+| Feature | macOS | Windows | Linux |
+|---------|:-----:|:-------:|:-----:|
+| **Accessibility tree** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+| **Click / type / keyboard** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+| **Mouse input** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+| **Screenshot** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+| **Clipboard** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+| **App & window management** | <Icon icon="check" iconType="solid" /> Yes | <Icon icon="clock" /> Planned | <Icon icon="clock" /> Planned |
+
+## macOS (Current)
+
+### Requirements
+
+- **macOS 13.0+** (Ventura or later)
+- **Rust 1.78+** (for building from source)
+- **Accessibility permission** granted to terminal app
+
+### Installation
+
+```bash
+npm install -g agent-desktop
+```
+
+Or without installing:
+
+```bash
+npx agent-desktop snapshot --app Finder -i
+```
+
+### Permissions
+
+macOS requires Accessibility permission for all commands. Grant it in:
+
+**System Settings > Privacy & Security > Accessibility**
+
+Add your terminal app (Terminal.app, iTerm2, VS Code, etc.) to the allowed list.
+
+Or trigger the system dialog:
+
+```bash
+agent-desktop permissions --request
+```
+
+### Technology Stack
+
+- **Accessibility API:** `AXUIElement` (native macOS accessibility framework)
+- **Input synthesis:** `CGEvent` (Core Graphics keyboard/mouse events)
+- **Screenshot:** `CGWindowListCreateImage` (window capture)
+- **Clipboard:** `NSPasteboard` (Cocoa clipboard API)
+
+### Tested Applications
+
+All 50+ commands are tested on:
+
+- Finder
+- Safari
+- TextEdit
+- System Settings
+- Notes
+- Slack
+- VS Code
+- Xcode
+
+Works with **any app exposing an accessibility tree**.
+
+## Windows (Planned - Phase 2)
+
+### Expected Technology
+
+- **Accessibility API:** UI Automation (`uiautomation` crate)
+- **Input synthesis:** Windows Input Simulator or SendInput API
+- **Screenshot:** GDI+ or Desktop Duplication API
+- **Clipboard:** Clipboard API via `windows-rs`
+
+### Timeline
+
+Phase 2 development planned for Q2 2026.
+
+## Linux (Planned - Phase 2)
+
+### Expected Technology
+
+- **Accessibility API:** AT-SPI 2 (`atspi` crate + `zbus` for D-Bus communication)
+- **Input synthesis:** `xdotool` wrapper or `libxdo`
+- **Screenshot:** X11 or Wayland compositor APIs
+- **Clipboard:** X11 clipboard or Wayland clipboard protocol
+
+### Desktop Environment Support
+
+Planned support for:
+
+- GNOME (full AT-SPI 2 support)
+- KDE Plasma (full AT-SPI 2 support)
+- Xfce, MATE, Cinnamon (expected to work)
+
+### Timeline
+
+Phase 2 development planned for Q2 2026.
+
+## Cross-Platform Architecture
+
+`agent-desktop` uses a **platform adapter pattern** to ensure identical behavior across operating systems:
+
+```
+CLI Commands (platform-agnostic)
+       ↓
+  Core Engine
+       ↓
+Platform Adapter Trait
+       ↓
+┌──────┴──────┬──────────┬──────────┐
+│   macOS     │ Windows  │  Linux   │
+│  Adapter    │ Adapter  │ Adapter  │
+└─────────────┴──────────┴──────────┘
+```
+
+### Compile-Time Selection
+
+The correct platform adapter is selected automatically at compile time:
+
+```bash
+# macOS binary
+cargo build --release
+
+# Windows binary (on Windows host)
+cargo build --release
+
+# Linux binary (on Linux host)
+cargo build --release
+```
+
+**Agents never specify the platform** - the same commands work identically:
+
+```bash
+agent-desktop snapshot -i  # Works on macOS, Windows, Linux
+```
+
+## Feature Parity Goals
+
+All 50+ commands will have **identical JSON output structure** across platforms. Any platform-specific limitations will return:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "PLATFORM_NOT_SUPPORTED",
+    "message": "Feature X is not available on this platform"
+  }
+}
+```
+
+## Building from Source
+
+### macOS
+
+```bash
+git clone https://github.com/lahfir/agent-desktop
+cd agent-desktop
+cargo build --release
+cp target/release/agent-desktop /usr/local/bin/
+```
+
+### Windows (Phase 2)
+
+```bash
+git clone https://github.com/lahfir/agent-desktop
+cd agent-desktop
+cargo build --release
+# Binary at: target\release\agent-desktop.exe
+```
+
+### Linux (Phase 2)
+
+```bash
+git clone https://github.com/lahfir/agent-desktop
+cd agent-desktop
+cargo build --release
+sudo cp target/release/agent-desktop /usr/local/bin/
+```
+
+## Related
+
+- [Installation](/getting-started/installation) - Platform-specific installation instructions
+- [Permissions](/getting-started/permissions) - Grant accessibility permissions
+- [Architecture](/core-concepts/architecture) - Cross-platform design

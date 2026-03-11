@@ -1,0 +1,176 @@
+---
+title: select
+description: Select an option in a list or dropdown
+---
+
+## Overview
+
+Selects an option from a dropdown, combobox, or list by matching the option's text value. This command searches for the specified value among the element's children and selects it.
+
+## Syntax
+
+```bash
+agent-desktop select <ref> <value>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must be a `combobox`, `popupbutton`, or `list`)
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Text of the option to select (exact match or partial)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "select",
+  "data": {
+    "action": "select",
+    "ref_id": "@e9",
+    "post_state": {
+      "role": "combobox",
+      "value": "Option B",
+      "states": ["enabled"]
+    }
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`select`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference where selection was made
+</ResponseField>
+
+<ResponseField name="post_state" type="object" optional>
+  Element state after selection
+  - `role` (string): Element role
+  - `value` (string): Selected option text
+  - `states` (string[]): Current states
+</ResponseField>
+
+## AX-First Strategy
+
+The select command uses this approach:
+
+1. Get element's children/options via accessibility
+2. Find child matching the value text
+3. Click the matching option
+4. Verify selection via `kAXValueAttribute`
+
+## Usage Examples
+
+### Select from Dropdown
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop find --role combobox --name "Country"
+agent-desktop select @e7 "United States"
+```
+
+### Select from Popup Button
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role popupbutton --name "Zoom"
+agent-desktop click @e5  # Open dropdown
+agent-desktop wait 200
+agent-desktop select @e5 "150%"
+```
+
+### Select from List
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role list
+agent-desktop select @e8 "Documents"
+```
+
+### Partial Match Selection
+
+```bash
+# Finds "Option A (recommended)" when searching for "Option A"
+agent-desktop select @e9 "Option A"
+```
+
+## Supported Element Types
+
+| Role | Behavior |
+|------|----------|
+| `combobox` | Opens dropdown and selects option |
+| `popupbutton` | Opens menu and clicks menu item |
+| `list` | Selects list item by value |
+| `table` | Selects row by cell content |
+
+## Selection Strategies
+
+1. **Direct AX Selection**: Sets `kAXSelectedChildrenAttribute`
+2. **Click Option**: Finds and clicks the matching option
+3. **Keyboard Navigation**: Uses arrow keys to navigate to option
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist or value not found | Verify option exists via `snapshot` |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Selection failed or option not clickable | Manually click dropdown then option |
+| `INVALID_ARGS` | Empty value or wrong element type | Provide valid option text |
+
+## Select Patterns
+
+### Two-Step Pattern (Open + Select)
+
+```bash
+# Some dropdowns require opening first
+agent-desktop click @e7      # Open dropdown
+agent-desktop wait 200        # Wait for options to appear
+agent-desktop snapshot -i     # Get options with refs
+agent-desktop click @e12      # Click desired option
+```
+
+### One-Step Pattern (Direct Select)
+
+```bash
+# Direct selection without opening
+agent-desktop select @e7 "Option B"
+```
+
+## Verifying Selection
+
+```bash
+# Select option
+agent-desktop select @e9 "Dark Mode"
+
+# Verify selection
+agent-desktop get @e9 value
+
+# Should return: "Dark Mode"
+```
+
+## Common Use Cases
+
+- **Form Fields**: Select country, state, category
+- **Settings**: Choose preferences from dropdowns
+- **Filters**: Select filter values in search interfaces
+- **Lists**: Select items from file/folder lists
+
+## Notes
+
+- Value matching is typically case-sensitive
+- Partial matches are supported in most implementations
+- Some dropdowns must be opened with `click` first
+- Selection may trigger onChange events
+- For multi-select lists, use multiple `select` calls
+- Verify selection after command if critical
+- Use `snapshot` to see available options before selecting

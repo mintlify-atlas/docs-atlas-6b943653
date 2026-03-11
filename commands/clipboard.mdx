@@ -1,0 +1,144 @@
+---
+title: Clipboard Commands
+description: Commands for reading, writing, and clearing clipboard contents
+---
+
+Clipboard commands let you read plain-text clipboard contents, write text to the clipboard, and clear it.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="clipboard-get" icon="clipboard" href="/api-reference/clipboard-get">
+    Read plain-text clipboard contents
+  </Card>
+  <Card title="clipboard-set" icon="clipboard-check" href="/api-reference/clipboard-set">
+    Write text to the clipboard
+  </Card>
+  <Card title="clipboard-clear" icon="clipboard-slash" href="/api-reference/clipboard-clear">
+    Clear the clipboard
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Read Clipboard
+
+```bash
+agent-desktop clipboard-get
+```
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "content": "copied text"
+  }
+}
+```
+
+If clipboard is empty or contains non-text data:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "content": ""
+  }
+}
+```
+
+### Write to Clipboard
+
+```bash
+agent-desktop clipboard-set "copied"
+```
+
+Sets clipboard to `"copied"`. Other apps can now paste it.
+
+### Clear Clipboard
+
+```bash
+agent-desktop clipboard-clear
+```
+
+Empties the clipboard.
+
+## Examples
+
+```bash
+# Read clipboard
+agent-desktop clipboard-get
+
+# Write to clipboard
+agent-desktop clipboard-set "hello world"
+
+# Clear clipboard
+agent-desktop clipboard-clear
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Copy-Paste Automation">
+    Copy from one app, paste to another:
+    
+    ```bash
+    agent-desktop click @e3
+    agent-desktop press cmd+c
+    agent-desktop clipboard-get  # verify copy succeeded
+    agent-desktop focus-window --app TextEdit
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Data Extraction">
+    Extract text from UI via clipboard:
+    
+    ```bash
+    agent-desktop click @e5
+    agent-desktop press cmd+a
+    agent-desktop press cmd+c
+    agent-desktop clipboard-get
+    # parse clipboard content
+    ```
+  </Accordion>
+
+  <Accordion title="Clipboard Injection">
+    Set clipboard programmatically, then paste:
+    
+    ```bash
+    agent-desktop clipboard-set "generated text"
+    agent-desktop focus @e2
+    agent-desktop press cmd+v
+    ```
+  </Accordion>
+
+  <Accordion title="Security Cleanup">
+    Clear sensitive data after use:
+    
+    ```bash
+    agent-desktop clipboard-set "secret key"
+    agent-desktop press cmd+v
+    agent-desktop clipboard-clear
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Clipboard Data Types
+
+Currently only **plain text** is supported. Future versions may support:
+
+- Images (PNG, JPEG)
+- Rich text (HTML, RTF)
+- Files (file paths)
+
+## Error Handling
+
+Common error codes:
+
+- `ACTION_FAILED`: OS rejected clipboard operation (rare)
+- `PERM_DENIED`: App lacks clipboard access (sandboxing)
+
+All commands return structured JSON with error codes and recovery hints.

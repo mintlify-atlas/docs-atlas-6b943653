@@ -1,0 +1,632 @@
+---
+title: Troubleshooting
+description: Common issues, error codes, and solutions for agent-desktop
+---
+
+## Permission Issues
+
+### PERM_DENIED Error
+
+**Symptom:** Commands return:
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "PERM_DENIED",
+    "message": "Accessibility permission not granted",
+    "suggestion": "Open System Settings > Privacy & Security > Accessibility and add your terminal"
+  }
+}
+```
+
+**Solution:**
+
+<Steps>
+  <Step title="Open System Settings">
+    Navigate to **System Settings > Privacy & Security > Accessibility**
+  </Step>
+  <Step title="Add your terminal app">
+    Click the **+** button and add:
+    - Terminal.app
+    - iTerm.app
+    - VS Code (if running from integrated terminal)
+    - Any other terminal you're using
+  </Step>
+  <Step title="Enable the toggle">
+    Ensure the checkbox next to your terminal is **checked**
+  </Step>
+  <Step title="Restart terminal">
+    Close and reopen your terminal window
+  </Step>
+  <Step title="Verify permission">
+    ```bash
+    agent-desktop permissions
+    ```
+  </Step>
+</Steps>
+
+### Request Permission Programmatically
+
+Trigger the system permission dialog:
+
+```bash
+agent-desktop permissions --request
+```
+
+<Note>
+  This will show a system prompt to grant Accessibility access. You still need to manually approve it in System Settings.
+</Note>
+
+### Check Permission Status
+
+```bash
+agent-desktop status
+```
+
+Output:
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "status",
+  "data": {
+    "platform": "macos",
+    "permissions": {
+      "accessibility": "granted"
+    }
+  }
+}
+```
+
+## Stale Reference Errors
+
+### STALE_REF Error
+
+**Symptom:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "STALE_REF",
+    "message": "Element at @e7 no longer matches the last snapshot",
+    "suggestion": "Run 'snapshot' to refresh refs, then retry"
+  }
+}
+```
+
+**Cause:** The UI changed between the snapshot and the action. The ref is from a previous snapshot and no longer valid.
+
+**Solution:**
+
+<CodeGroup>
+
+```bash Refresh Snapshot
+# Take a new snapshot to get updated refs
+agent-desktop snapshot --app Safari -i
+
+# Now retry the action with the new ref
+agent-desktop click @e3
+```
+
+```bash Agent Loop Pattern
+# Correct pattern for agents:
+snapshot → act → STALE_REF? → snapshot again → retry
+```
+
+</CodeGroup>
+
+### Why Refs Go Stale
+
+<CardGroup cols={2}>
+  <Card title="UI Changed" icon="arrows-rotate">
+    Window was resized, elements added/removed, or content scrolled
+  </Card>
+  <Card title="App Closed" icon="xmark">
+    The application was closed or crashed
+  </Card>
+  <Card title="Window Changed" icon="window-restore">
+    Switched to a different window or tab
+  </Card>
+  <Card title="Long Delay" icon="clock">
+    Too much time passed between snapshot and action (state drift)
+  </Card>
+</CardGroup>
+
+### Best Practices
+
+- **Re-snapshot after UI changes** (button clicks, menu selections, page loads)
+- **Use `wait` commands** before snapshots to let UI settle
+- **Keep snapshot → action cycles tight** (minimize time between them)
+- **Handle STALE_REF in agent logic** (auto-retry with new snapshot)
+
+## Element Not Found
+
+### ELEMENT_NOT_FOUND Error
+
+**Symptom:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "find",
+  "error": {
+    "code": "ELEMENT_NOT_FOUND",
+    "message": "No element matched the query",
+    "suggestion": "Use 'snapshot' to see available elements"
+  }
+}
+```
+
+**Causes & Solutions:**
+
+<AccordionGroup>
+  <Accordion title="Element doesn't exist">
+    The element you're looking for isn't in the UI.
+    
+    **Solution:** Take a snapshot and inspect the tree:
+    
+    ```bash
+    agent-desktop snapshot --app MyApp -i | jq .
+    ```
+  </Accordion>
+  
+  <Accordion title="Wrong role or name">
+    You're searching for the wrong role or name.
+    
+    **Solution:** Use `find` with different criteria:
+    
+    ```bash
+    agent-desktop find --role button --app MyApp
+    agent-desktop find --name "Save" --app MyApp
+    agent-desktop find --text "Click here" --app MyApp
+    ```
+  </Accordion>
+  
+  <Accordion title="Element not interactive">
+    Static text, labels, and containers don't get refs.
+    
+    **Solution:** Look for nearby interactive elements (buttons, textfields) or use `snapshot` without `-i` to see static elements:
+    
+    ```bash
+    agent-desktop snapshot --app MyApp
+    ```
+  </Accordion>
+  
+  <Accordion title="Element in different surface">
+    The element is in a menu, sheet, popover, or alert that isn't focused.
+    
+    **Solution:** Use `--surface` to capture the right surface:
+    
+    ```bash
+    agent-desktop snapshot --surface menu -i
+    agent-desktop snapshot --surface sheet -i
+    agent-desktop snapshot --surface alert -i
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Application Issues
+
+### APP_NOT_FOUND Error
+
+**Symptom:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "snapshot",
+  "error": {
+    "code": "APP_NOT_FOUND",
+    "message": "Application 'MyApp' not running or has no windows",
+    "suggestion": "Launch the app first or check the app name"
+  }
+}
+```
+
+**Solutions:**
+
+<Tabs>
+  <Tab title="Launch app first">
+    ```bash
+    agent-desktop launch MyApp
+    agent-desktop snapshot --app MyApp -i
+    ```
+  </Tab>
+  
+  <Tab title="Check app name">
+    List running apps to verify the correct name:
+    
+    ```bash
+    agent-desktop list-apps | jq '.data.apps[] | .name'
+    ```
+    
+    Use exact name from output:
+    
+    ```bash
+    agent-desktop snapshot --app "Google Chrome" -i
+    ```
+  </Tab>
+  
+  <Tab title="Use bundle ID">
+    Launch by bundle ID for reliability:
+    
+    ```bash
+    agent-desktop launch com.apple.Safari
+    agent-desktop snapshot --app Safari -i
+    ```
+  </Tab>
+</Tabs>
+
+### App Has No Windows
+
+Some apps launch without windows (e.g., background apps, menu bar apps).
+
+**Solution:** Check if app actually has windows:
+
+```bash
+agent-desktop list-windows --app MyApp
+```
+
+If no windows, the app may not be UI-automatable.
+
+## Action Failures
+
+### ACTION_FAILED Error
+
+**Symptom:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "click",
+  "error": {
+    "code": "ACTION_FAILED",
+    "message": "The OS rejected the action",
+    "platform_detail": "AXError -25205: invalid element"
+  }
+}
+```
+
+**Causes & Solutions:**
+
+- **Element is disabled**: Check element state in snapshot (`"states": ["enabled": false]`)
+- **Element is not visible**: Element may be off-screen or hidden
+- **Action not supported**: Some elements don't support certain actions (e.g., can't click static text)
+- **Timing issue**: UI wasn't ready. Add `wait` before action:
+
+```bash
+agent-desktop wait 500
+agent-desktop click @e3
+```
+
+### ACTION_NOT_SUPPORTED Error
+
+The platform doesn't support the requested action.
+
+**Example:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "screenshot",
+  "error": {
+    "code": "ACTION_NOT_SUPPORTED",
+    "message": "Screenshot not supported on this platform"
+  }
+}
+```
+
+**Solution:** Check [platform support table](/quickstart#platform-support) in docs.
+
+## Timeout Errors
+
+### TIMEOUT Error
+
+**Symptom:**
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "wait",
+  "error": {
+    "code": "TIMEOUT",
+    "message": "Wait condition not met within 5000ms",
+    "suggestion": "Increase timeout or check condition"
+  }
+}
+```
+
+**Solutions:**
+
+<CodeGroup>
+
+```bash Increase Timeout
+agent-desktop wait --element @e3 --timeout 10000
+agent-desktop wait --window "Save" --timeout 15000
+```
+
+```bash Wait for Different Condition
+# Wait for text to appear
+agent-desktop wait --text "Loading complete" --app Safari --timeout 10000
+
+# Wait for menu
+agent-desktop wait --menu --timeout 3000
+```
+
+```bash Poll Manually
+# For complex conditions, poll in agent code:
+while True:
+    result = snapshot()
+    if condition_met(result):
+        break
+    sleep(100ms)
+```
+
+</CodeGroup>
+
+## Performance Issues
+
+### Snapshot Takes Too Long
+
+**Symptom:** `snapshot` takes >2 seconds
+
+**Solutions:**
+
+<CardGroup cols={2}>
+  <Card title="Use -i flag" icon="filter">
+    ```bash
+    agent-desktop snapshot --app Xcode -i
+    ```
+    Skips static elements, reduces tree size by ~70%
+  </Card>
+  <Card title="Reduce max-depth" icon="layer-group">
+    ```bash
+    agent-desktop snapshot --max-depth 5 -i
+    ```
+    Default is 10, lower values are faster
+  </Card>
+  <Card title="Use compact mode" icon="compress">
+    ```bash
+    agent-desktop snapshot --compact -i
+    ```
+    Omits empty structural nodes
+  </Card>
+  <Card title="Target specific window" icon="window">
+    ```bash
+    agent-desktop snapshot --window-id w-4521 -i
+    ```
+    Avoid traversing all app windows
+  </Card>
+</CardGroup>
+
+### Large JSON Output
+
+For apps with deep trees (Xcode, Chrome with many tabs):
+
+```bash
+# Pipe to file instead of terminal
+agent-desktop snapshot --app Xcode -i > snapshot.json
+
+# Use compact + interactive-only
+agent-desktop snapshot --app Xcode -i --compact | jq -c . > snapshot.json
+```
+
+## Build & Development Issues
+
+### Clippy Warnings
+
+**Symptom:** `cargo clippy` reports warnings
+
+**Solution:** Fix all warnings. CI requires zero warnings:
+
+```bash
+cargo clippy --all-targets -- -D warnings
+```
+
+### Binary Size >15MB
+
+**Symptom:** Release binary exceeds 15MB
+
+**Solution:** Check release profile in `Cargo.toml`:
+
+```toml
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+```
+
+Verify:
+
+```bash
+cargo build --release
+ls -lh target/release/agent-desktop
+```
+
+### Core Depends on Platform Crate
+
+**Symptom:** CI fails with "core depends on platform crate"
+
+**Solution:** Core must never import `macos`, `windows`, or `linux` crates. Verify:
+
+```bash
+cargo tree -p agent-desktop-core
+```
+
+Output must NOT contain `agent-desktop-macos`, `agent-desktop-windows`, or `agent-desktop-linux`.
+
+### Tests Fail Without Permission
+
+**Symptom:** `cargo test` fails on macOS
+
+**Solution:** Grant Accessibility permission to your Rust test runner:
+
+1. Run `cargo test` once to trigger permission dialog
+2. Go to **System Settings > Privacy & Security > Accessibility**
+3. Add the test runner (usually `rust-analyzer` or `cargo`)
+4. Re-run tests
+
+## Error Code Reference
+
+| Code | Meaning | Common Causes | Recovery |
+|------|---------|---------------|----------|
+| `PERM_DENIED` | Accessibility permission not granted | macOS permission not set | Grant in System Settings |
+| `ELEMENT_NOT_FOUND` | No element matched ref/query | Wrong role, name, or element doesn't exist | Use `snapshot` to inspect tree |
+| `APP_NOT_FOUND` | Application not running or no windows | App not launched or wrong name | Launch app or check name with `list-apps` |
+| `STALE_REF` | Ref is from previous snapshot | UI changed since snapshot | Run `snapshot` again to refresh refs |
+| `ACTION_FAILED` | OS rejected the action | Element disabled, hidden, or invalid | Check element state, add `wait` |
+| `ACTION_NOT_SUPPORTED` | Platform doesn't support action | Windows/Linux in Phase 1 | Check platform support |
+| `WINDOW_NOT_FOUND` | Window doesn't exist | Window closed or wrong ID | Use `list-windows` to verify |
+| `TIMEOUT` | Wait condition not met | Condition never became true | Increase timeout or change condition |
+| `INVALID_ARGS` | Invalid argument values | Wrong flag format or value | Check `--help` for correct syntax |
+| `PLATFORM_NOT_SUPPORTED` | Operation not available on this OS | Running on unsupported platform | Use supported platform (macOS for Phase 1) |
+| `INTERNAL` | Unexpected internal error | Bug or OS API failure | Report issue with full error details |
+
+## Exit Codes
+
+- **0** — Success (check JSON `"ok": true`)
+- **1** — Structured error (JSON with error code on stdout)
+- **2** — Argument parse error (invalid command/flags)
+
+## Logging & Debugging
+
+### Enable Debug Logs
+
+```bash
+RUST_LOG=debug agent-desktop snapshot --app Finder -i
+```
+
+**Log levels:** `error`, `warn`, `info`, `debug`, `trace`
+
+### Inspect RefMap
+
+Refs are stored at `~/.agent-desktop/last_refmap.json`:
+
+```bash
+cat ~/.agent-desktop/last_refmap.json | jq .
+```
+
+**Format:**
+
+```json
+{
+  "@e1": {
+    "pid": 1234,
+    "role": "button",
+    "name": "Save",
+    "bounds_hash": "a3f2b1c4",
+    "available_actions": ["press"]
+  }
+}
+```
+
+### Check JSON Output
+
+Pipe to `jq` for pretty-printing:
+
+```bash
+agent-desktop snapshot -i | jq .
+```
+
+Filter specific fields:
+
+```bash
+# Get only ref_count
+agent-desktop snapshot -i | jq '.data.ref_count'
+
+# Get all refs
+agent-desktop snapshot -i | jq '.data.tree | .. | .ref? | select(. != null)'
+```
+
+## Getting Help
+
+<CardGroup cols={3}>
+  <Card title="Built-in Help" icon="circle-question">
+    ```bash
+    agent-desktop --help
+    agent-desktop snapshot --help
+    ```
+  </Card>
+  <Card title="GitHub Issues" icon="github">
+    Report bugs or request features at [github.com/lahfir/agent-desktop](https://github.com/lahfir/agent-desktop/issues)
+  </Card>
+  <Card title="Status Command" icon="circle-info">
+    ```bash
+    agent-desktop status
+    agent-desktop version
+    ```
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Reliable Click
+
+```bash
+# 1. Wait for UI to settle
+agent-desktop wait 500
+
+# 2. Snapshot to get fresh refs
+agent-desktop snapshot --app MyApp -i
+
+# 3. Click the element
+agent-desktop click @e3
+
+# 4. Handle stale ref
+if [ $? -eq 1 ]; then
+  # Re-snapshot and retry
+  agent-desktop snapshot --app MyApp -i
+  agent-desktop click @e3
+fi
+```
+
+### Wait for Window
+
+```bash
+# Launch app
+agent-desktop launch Safari
+
+# Wait for window to appear
+agent-desktop wait --window "Safari" --timeout 10000
+
+# Now safe to snapshot
+agent-desktop snapshot --app Safari -i
+```
+
+### Handle Menu Interaction
+
+```bash
+# Open menu
+agent-desktop right-click @e5
+
+# Menu tree is inline in response, but also:
+agent-desktop snapshot --surface menu -i
+
+# Select menu item
+agent-desktop click @e12
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="./architecture">
+    Deep dive into workspace structure and design patterns
+  </Card>
+  <Card title="Development" icon="code" href="./development">
+    Build, test, and contribute to agent-desktop
+  </Card>
+</CardGroup>

@@ -1,0 +1,122 @@
+---
+title: "Introduction"
+description: "Native desktop automation CLI for AI agents with structured JSON output and deterministic element references"
+---
+
+# Agent Desktop
+
+**agent-desktop** is a native desktop automation CLI designed for AI agents, built with Rust. It gives structured access to any application through OS accessibility trees — no screenshots, no pixel matching, no browser required.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Native Rust CLI" icon="terminal">
+    Fast single binary with 50+ commands for desktop automation and no runtime dependencies
+  </Card>
+  <Card title="AI-Optimized Workflow" icon="robot">
+    Snapshot & ref workflow with deterministic element references (@e1, @e2) for reliable automation
+  </Card>
+  <Card title="AX-First Interactions" icon="universal-access">
+    Exhausts accessibility API strategies before falling back to mouse events
+  </Card>
+  <Card title="Structured JSON Output" icon="code">
+    Machine-readable responses with error codes and recovery hints
+  </Card>
+  <Card title="Works Everywhere" icon="window">
+    Control any macOS app through native accessibility trees (Windows/Linux planned)
+  </Card>
+  <Card title="Zero Dependencies" icon="rocket">
+    Self-contained binary under 15MB with no external requirements
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+```bash
+# Get interactive elements with refs
+agent-desktop snapshot --app Finder -i
+
+# Click a button by ref
+agent-desktop click @e3
+
+# Type into a text field
+agent-desktop type @e5 "quarterly report"
+
+# Press keyboard shortcut
+agent-desktop press cmd+s
+
+# Re-observe after UI changes
+agent-desktop snapshot -i
+```
+
+## Core Workflow
+
+The snapshot + ref pattern is optimal for LLMs: refs provide deterministic element selection without re-querying the accessibility tree.
+
+```
+Agent loop:  snapshot → decide → act → snapshot → decide → act → ...
+```
+
+## Command Categories
+
+<CardGroup cols={2}>
+  <Card title="Observation" icon="eye" href="/commands/observation">
+    Capture accessibility trees, screenshots, and search elements
+  </Card>
+  <Card title="Interaction" icon="hand-pointer" href="/commands/interaction">
+    Click, type, select, toggle, and manipulate UI elements
+  </Card>
+  <Card title="Keyboard" icon="keyboard" href="/commands/keyboard">
+    Send key combos and control keyboard state
+  </Card>
+  <Card title="Mouse" icon="computer-mouse" href="/commands/mouse">
+    Control cursor position, clicks, and drag operations
+  </Card>
+  <Card title="App & Window" icon="window-restore" href="/commands/app-window">
+    Launch apps, manage windows, and control focus
+  </Card>
+  <Card title="Clipboard" icon="clipboard" href="/commands/clipboard">
+    Read and write clipboard contents
+  </Card>
+  <Card title="Wait" icon="clock" href="/commands/wait">
+    Block until conditions are met or time elapses
+  </Card>
+  <Card title="System" icon="gear" href="/commands/system">
+    Check permissions, version, and system status
+  </Card>
+  <Card title="Batch" icon="list" href="/commands/batch">
+    Execute multiple commands in sequence
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get agent-desktop installed on your system
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run your first automation in minutes
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/snapshot">
+    Explore all 50+ commands in detail
+  </Card>
+  <Card title="Core Concepts" icon="lightbulb" href="/concepts/workflow">
+    Learn the snapshot-ref workflow and JSON output
+  </Card>
+</CardGroup>
+
+## Platform Support
+
+| Feature | macOS | Windows | Linux |
+|---------|:-----:|:-------:|:-----:|
+| Accessibility tree | ✅ | Planned | Planned |
+| Click / type / keyboard | ✅ | Planned | Planned |
+| Mouse input | ✅ | Planned | Planned |
+| Screenshot | ✅ | Planned | Planned |
+| Clipboard | ✅ | Planned | Planned |
+| App & window management | ✅ | Planned | Planned |
+
+<Note>
+Currently supports macOS 13.0+ with Rust 1.78+. Windows and Linux support is planned for future releases.
+</Note>

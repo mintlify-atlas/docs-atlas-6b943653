@@ -1,0 +1,237 @@
+---
+title: scroll
+description: Scroll element in specified direction and amount
+---
+
+## Overview
+
+Scrolls an element in a specified direction by a given amount. Uses AX-first strategy with a 10-step activation chain to maximize compatibility across different scrollable element types.
+
+## Syntax
+
+```bash
+agent-desktop scroll <ref> [--direction <direction>] [--amount <amount>]
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (must be scrollable)
+</ParamField>
+
+<ParamField path="--direction" type="string" default="down">
+  Scroll direction: `up`, `down`, `left`, `right`
+</ParamField>
+
+<ParamField path="--amount" type="number" default="3">
+  Number of scroll units (typically lines or pages)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "scroll",
+  "data": {
+    "action": "scroll",
+    "ref_id": "@e1"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`scroll`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was scrolled
+</ResponseField>
+
+## AX-First Strategy
+
+The scroll command uses a 10-step activation chain:
+
+1. Try `kAXScrollToVisibleAction` if applicable
+2. Try `kAXIncrementAction` / `kAXDecrementAction`
+3. Try setting scroll bar position via AX
+4. Try arrow key presses (up/down/left/right)
+5. Try page up/down keys
+6. Try scroll wheel events at element center
+7. Try dragging scroll bar
+8. Try mouse wheel events
+9. Try trackpad gestures
+10. Fall back to coordinate-based scroll
+
+## Direction Values
+
+| Direction | Behavior |
+|-----------|----------|
+| `up` | Scroll content upward (show earlier content) |
+| `down` | Scroll content downward (show later content) |
+| `left` | Scroll content leftward |
+| `right` | Scroll content rightward |
+
+## Usage Examples
+
+### Scroll Down in Window
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop scroll @e1 --direction down --amount 5
+```
+
+### Scroll Up
+
+```bash
+agent-desktop scroll @e1 --direction up --amount 3
+```
+
+### Scroll Horizontally
+
+```bash
+agent-desktop snapshot --app "Sublime Text" -i
+agent-desktop scroll @e2 --direction right --amount 10
+```
+
+### Scroll with Defaults
+
+```bash
+# Scrolls down by 3 units (default)
+agent-desktop scroll @e1
+```
+
+### Scroll Until Element Appears
+
+```bash
+# Pattern: scroll in a loop until target appears
+for i in {1..10}; do
+  agent-desktop snapshot -i > /tmp/snap.json
+  if jq -e '.data.tree | .. | select(.name? == "Target Element")' /tmp/snap.json > /dev/null; then
+    echo "Found target"
+    break
+  fi
+  agent-desktop scroll @e1 --direction down --amount 3
+  sleep 0.5
+done
+```
+
+## Scroll Amount
+
+The `--amount` parameter typically represents:
+
+| Element Type | Amount Unit |
+|--------------|-------------|
+| Text area | Lines |
+| List | Items |
+| Page view | Pages |
+| Canvas | Pixels (varies) |
+
+The exact interpretation depends on the element and platform.
+
+## Supported Element Types
+
+| Role | Scroll Behavior |
+|------|----------------|
+| `scrollarea` | Primary scroll target |
+| `list` | Scroll list items |
+| `textarea` | Scroll text content |
+| `table` | Scroll table rows |
+| `webarea` | Scroll web page content |
+| `outline` | Scroll outline items |
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element is not scrollable | Element may not have scrollable content |
+| `INVALID_ARGS` | Invalid direction or amount | Use valid direction (up/down/left/right) |
+
+## Scroll vs Scroll-To
+
+| Command | Use Case | Target |
+|---------|----------|--------|
+| `scroll` | Scroll by amount in direction | Relative movement |
+| `scroll-to` | Scroll element into view | Specific element |
+
+**Use `scroll` when:**
+- You want to scroll by a specific amount
+- Direction matters
+- Exploring content incrementally
+
+**Use `scroll-to` when:**
+- You have a ref to the target element
+- You want to ensure element is visible
+- Absolute positioning needed
+
+## Scroll Patterns
+
+### Scroll to Top
+
+```bash
+# Scroll up with large amount
+agent-desktop scroll @e1 --direction up --amount 999
+```
+
+### Scroll to Bottom
+
+```bash
+# Scroll down with large amount
+agent-desktop scroll @e1 --direction down --amount 999
+```
+
+### Page Down
+
+```bash
+# Scroll by one page
+agent-desktop scroll @e1 --direction down --amount 1
+```
+
+### Smooth Scroll
+
+```bash
+# Multiple small scrolls with delays
+for i in {1..5}; do
+  agent-desktop scroll @e1 --direction down --amount 1
+  sleep 0.2
+done
+```
+
+## Performance Notes
+
+- Scroll operations may trigger content loading (infinite scroll)
+- Some apps redraw content during scroll (adds latency)
+- Large scroll amounts may take longer to complete
+- Consider `wait` after scroll to allow content to stabilize
+
+## Verifying Scroll
+
+```bash
+# Capture initial state
+agent-desktop snapshot -i > before.json
+
+# Scroll
+agent-desktop scroll @e1 --direction down --amount 5
+
+# Capture new state
+agent-desktop snapshot -i > after.json
+
+# Compare
+diff <(jq '.data.tree' before.json) <(jq '.data.tree' after.json)
+```
+
+## Notes
+
+- Scroll amount interpretation varies by element type
+- Some elements may not respond to all directions
+- Scrolling may reveal new elements; snapshot after scroll
+- For precise element visibility, use `scroll-to` instead
+- Scroll bars are separate elements that can also be scrolled
+- Mouse wheel fallback works when AX methods fail
+- Large amounts may cause multiple scroll events
+- Always add `wait` after scroll for content to stabilize

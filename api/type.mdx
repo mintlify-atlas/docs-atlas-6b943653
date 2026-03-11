@@ -1,0 +1,162 @@
+---
+title: type
+description: Focus element and type text
+---
+
+## Overview
+
+Sets keyboard focus on an element and types the specified text. The command automatically focuses the element before typing, ensuring text is entered into the correct field.
+
+## Syntax
+
+```bash
+agent-desktop type <ref> <text>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (`@e1`, `@e2`, etc.)
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  Text to type (max 10,000 characters)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "type",
+  "data": {
+    "action": "type_text",
+    "ref_id": "@e5"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`type_text`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that received the text
+</ResponseField>
+
+## Behavior
+
+The type command:
+
+1. Sets focus on the element using `Action::SetFocus`
+2. Types text character-by-character using keyboard events
+3. Preserves existing text (appends by default)
+4. Supports all printable characters and special keys
+
+To replace existing text:
+
+```bash
+agent-desktop clear @e5
+agent-desktop type @e5 "new text"
+```
+
+Or select all first:
+
+```bash
+agent-desktop focus @e5
+agent-desktop press cmd+a
+agent-desktop type @e5 "replacement text"
+```
+
+## Usage Examples
+
+### Type into Text Field
+
+```bash
+agent-desktop snapshot --app Safari -i
+agent-desktop find --role textfield --name "Search"
+agent-desktop type @e3 "agent-desktop documentation"
+agent-desktop press return
+```
+
+### Fill Form Fields
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+
+# Username field
+agent-desktop type @e5 "user@example.com"
+
+# Password field
+agent-desktop type @e8 "secure_password_123"
+
+# Submit
+agent-desktop click @e12
+```
+
+### Type with Special Characters
+
+```bash
+# Type text with newlines, symbols
+agent-desktop type @e3 "Line 1\nLine 2\nSpecial: @#$%"
+```
+
+### Type into Code Editor
+
+```bash
+agent-desktop snapshot --app "Visual Studio Code" -i
+agent-desktop type @e2 "function hello() {\n  console.log('Hello');\n}"
+```
+
+## Text Handling
+
+| Character Type | Behavior |
+|----------------|----------|
+| Printable chars | Typed as-is |
+| Newline (\n) | Presses return key |
+| Tab (\t) | Presses tab key |
+| Special symbols | Typed with shift if needed |
+| Emoji | Supported (Unicode) |
+
+## Performance
+
+- Typing speed: ~50-100 chars/second
+- For large text (>1000 chars), use `set-value` for better performance
+- Max length: 10,000 characters per command
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element cannot receive keyboard focus | Try `set-value` instead |
+| `INVALID_ARGS` | Text exceeds 10,000 characters | Split into smaller chunks |
+
+## Type vs Set-Value
+
+| Command | Use Case | Speed | Triggers Events |
+|---------|----------|-------|----------------|
+| `type` | Mimics user typing | Slower | Yes (keydown, keyup) |
+| `set-value` | Direct value assignment | Faster | No keyboard events |
+
+**Use `type` when:**
+- App validates input on keypress
+- Autocomplete needs to trigger
+- Keyboard shortcuts should fire
+
+**Use `set-value` when:**
+- Large text needs to be entered quickly
+- No validation on keypress
+- Direct value assignment is acceptable
+
+## Notes
+
+- Text is appended by default; use `clear` first to replace
+- Focus is set automatically before typing
+- Command blocks until typing completes
+- Use `clipboard-set` + `cmd+v` for very large text
+- Supports hyphenated arguments with `allow_hyphen_values`

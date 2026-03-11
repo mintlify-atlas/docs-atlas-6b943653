@@ -1,0 +1,521 @@
+---
+title: Development
+description: Build, test, and contribute to agent-desktop with Rust best practices
+---
+
+## Quick Start
+
+### Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="Rust 1.78+" icon="rust">
+    Install via [rustup.rs](https://rustup.rs)
+  </Card>
+  <Card title="macOS 13.0+" icon="apple">
+    Currently required for Phase 1 development
+  </Card>
+</CardGroup>
+
+### Clone and Build
+
+```bash
+git clone https://github.com/lahfir/agent-desktop
+cd agent-desktop
+cargo build --release
+```
+
+The binary will be at `./target/release/agent-desktop` (under 15MB optimized).
+
+## Common Commands
+
+<CodeGroup>
+
+```bash Development Build
+cargo build
+```
+
+```bash Release Build
+cargo build --release
+```
+
+```bash Run All Tests
+cargo test --lib --workspace
+```
+
+```bash Test Single Crate
+cargo test --lib -p agent-desktop-core
+cargo test --lib -p agent-desktop-macos
+```
+
+```bash Run Specific Test
+cargo test test_name
+```
+
+```bash Lint (Must Pass)
+cargo clippy --all-targets -- -D warnings
+```
+
+```bash Format Check
+cargo fmt --all -- --check
+```
+
+```bash Auto-Format
+cargo fmt --all
+```
+
+```bash Verify Dependency Isolation
+cargo tree -p agent-desktop-core
+# Must NOT contain macos, windows, or linux
+```
+
+</CodeGroup>
+
+## Running the Binary
+
+After building, test with:
+
+```bash
+# Snapshot Finder with interactive refs
+./target/release/agent-desktop snapshot --app Finder -i
+
+# Check permissions
+./target/release/agent-desktop permissions
+
+# Show help
+./target/release/agent-desktop --help
+```
+
+<Note>
+  Grant Accessibility permission before running: **System Settings > Privacy & Security > Accessibility** → add your terminal app.
+</Note>
+
+## Project Structure
+
+### Workspace Members
+
+| Crate | Path | Purpose |
+|-------|------|----------|
+| `agent-desktop-core` | `crates/core/` | Platform-agnostic logic, `PlatformAdapter` trait |
+| `agent-desktop-macos` | `crates/macos/` | macOS implementation (Phase 1) |
+| `agent-desktop-windows` | `crates/windows/` | Windows stub (Phase 2) |
+| `agent-desktop-linux` | `crates/linux/` | Linux stub (Phase 2) |
+| `agent-desktop` (binary) | `src/` | CLI entry point, dispatch, JSON envelope |
+
+### Shared Dependencies
+
+Workspace-level dependencies in root `Cargo.toml`:
+
+```toml
+[workspace.dependencies]
+clap               = { version = "4.5", features = ["derive"] }
+serde              = { version = "1.0", features = ["derive"] }
+serde_json         = "1.0"
+thiserror          = "2.0"
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64             = "0.22"
+rustc-hash         = "2.1"
+agent-desktop-core = { path = "crates/core" }
+```
+
+## Coding Standards
+
+### File Rules
+
+<Warning>
+  **400 LOC hard limit per file.** If approaching 400 lines, split by responsibility. No exceptions.
+</Warning>
+
+- **One struct/enum per file** for domain types
+- **One command per file** under `commands/`
+- **No inline comments** — code must be self-documenting
+- Only doc-comments (`///`) on public items when name alone is insufficient
+- **No God objects** — max 7 fields per struct, max 5 params per function
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|-----------|----------|
+| Crate names | `agent-desktop-{name}` | `agent-desktop-core` |
+| Module files | `snake_case`, singular | `snapshot.rs` |
+| Structs | PascalCase, descriptive noun | `SnapshotEngine` |
+| Traits | PascalCase, adjective | `PlatformAdapter` |
+| Enums | PascalCase, variants PascalCase | `Action::Click` |
+| Functions | `snake_case`, verb-first | `build_tree()` |
+| Constants | `SCREAMING_SNAKE_CASE` | `MAX_TREE_DEPTH` |
+| CLI flags | kebab-case | `--max-depth` |
+| Ref IDs | `@e{n}` sequential | `@e1`, `@e14` |
+
+### Error Handling
+
+<CardGroup cols={2}>
+  <Card title="Zero unwrap()" icon="ban">
+    All `Result`s propagated with `?` or matched explicitly. Panics are test-only.
+  </Card>
+  <Card title="Structured Errors" icon="list">
+    Every error has: `ErrorCode`, `message`, `suggestion`, `platform_detail`
+  </Card>
+</CardGroup>
+
+Error codes:
+
+```rust
+PERM_DENIED, ELEMENT_NOT_FOUND, APP_NOT_FOUND, ACTION_FAILED,
+ACTION_NOT_SUPPORTED, STALE_REF, WINDOW_NOT_FOUND,
+PLATFORM_NOT_SUPPORTED, TIMEOUT, INVALID_ARGS, INTERNAL
+```
+
+Exit codes:
+
+- `0` — success
+- `1` — structured error (JSON on stdout)
+- `2` — argument/parse error
+
+## Adding a New Command
+
+<Steps>
+  <Step title="Create command file">
+    Add `crates/core/src/commands/my_command.rs` with an `execute()` function:
+    
+    ```rust
+    use crate::{PlatformAdapter, AppError};
+    use serde_json::Value;
+
+    pub fn execute(args: MyCommandArgs, adapter: &dyn PlatformAdapter) -> Result<Value, AppError> {
+        // implementation
+    }
+    ```
+  </Step>
+  
+  <Step title="Register in core">
+    Add to `crates/core/src/commands/mod.rs`:
+    
+    ```rust
+    pub mod my_command;
+    ```
+  </Step>
+  
+  <Step title="Add CLI variant">
+    Update `src/cli.rs`:
+    
+    ```rust
+    #[derive(Subcommand)]
+    pub enum Commands {
+        // ...
+        MyCommand(MyCommandArgs),
+    }
+    ```
+  </Step>
+  
+  <Step title="Add dispatch arm">
+    Update `src/dispatch.rs`:
+    
+    ```rust
+    match cmd {
+        // ...
+        Commands::MyCommand(args) => commands::my_command::execute(args, adapter),
+    }
+    ```
+  </Step>
+  
+  <Step title="(Optional) Add Action variant">
+    If the command needs a new `Action` type, add to `crates/core/src/action.rs`:
+    
+    ```rust
+    pub enum Action {
+        // ...
+        MyAction(String),
+    }
+    ```
+  </Step>
+  
+  <Step title="(Optional) Add adapter method">
+    If the command needs a new platform capability, add to `PlatformAdapter` trait with default:
+    
+    ```rust
+    fn my_operation(&self) -> Result<(), AdapterError> {
+        Err(AdapterError::not_supported())
+    }
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  No existing files are modified beyond these registration points. This is enforced via code review.
+</Note>
+
+## Testing Strategy
+
+### Unit Tests (Core)
+
+Tests in `crates/core/src/`:
+
+- `AccessibilityNode` ser/de roundtrips
+- Ref allocator only assigns interactive roles
+- `SnapshotEngine` filtering logic
+- Error serialization format
+- `MockAdapter` for isolated testing
+
+```bash
+cargo test --lib -p agent-desktop-core
+```
+
+### Platform Tests (macOS)
+
+Tests in `crates/macos/src/`:
+
+- Tree traversal correctness
+- Role mapping coverage
+- Action execution
+- Permission detection
+
+```bash
+cargo test --lib -p agent-desktop-macos
+```
+
+### Golden Fixtures
+
+`tests/fixtures/` contains real snapshots from Finder, TextEdit, etc. for regression testing:
+
+```bash
+cargo test --test fixtures
+```
+
+### Integration Tests (macOS CI)
+
+`tests/integration/` runs full command scenarios:
+
+- Snapshot Finder → non-empty tree with refs
+- Click button in test app → verify action succeeded
+- Type text into TextEdit via ref → verify content changed
+- Clipboard get/set roundtrip
+- Permission denied scenario → correct error code
+
+```bash
+cargo test --test integration
+```
+
+<Warning>
+  Integration tests require Accessibility permission and running macOS 13.0+.
+</Warning>
+
+## Linting & Formatting
+
+### Clippy Rules
+
+Project uses strict linting (`clippy.toml`):
+
+```bash
+cargo clippy --all-targets -- -D warnings
+```
+
+**Zero warnings allowed.** CI enforces this.
+
+### Formatting
+
+Standard Rust formatting:
+
+```bash
+# Check formatting
+cargo fmt --all -- --check
+
+# Auto-format
+cargo fmt --all
+```
+
+## Dependency Verification
+
+CI enforces dependency inversion:
+
+```bash
+# Core must NOT depend on platform crates
+cargo tree -p agent-desktop-core
+```
+
+If output contains `macos`, `windows`, or `linux`, the build fails.
+
+## Build Profiles
+
+### Debug (Default)
+
+Fast compilation, large binary, no optimizations:
+
+```bash
+cargo build
+# Binary: ./target/debug/agent-desktop (~50MB)
+```
+
+### Release
+
+Optimized for size (under 15MB target):
+
+```bash
+cargo build --release
+# Binary: ./target/release/agent-desktop (~12MB)
+```
+
+Release profile settings:
+
+```toml
+[profile.release]
+opt-level = "z"           # optimize for size
+lto = true                # link-time optimization
+codegen-units = 1         # single codegen unit
+strip = true              # strip symbols
+panic = "abort"           # smaller panic handler
+```
+
+## Platform Crate Guidelines
+
+### Folder Placement
+
+All platform crates follow identical structure:
+
+```
+crates/{macos,windows,linux}/src/
+├── lib.rs              # mod declarations + re-exports only
+├── adapter.rs          # PlatformAdapter trait impl
+├── tree/               # Tree reading & traversal
+├── actions/            # Element interactions
+├── input/              # Keyboard, mouse, clipboard
+└── system/             # App lifecycle, windows, permissions
+```
+
+**Placement rules:**
+
+- Tree reading → `tree/`
+- Element interaction → `actions/`
+- Raw OS input → `input/`
+- App lifecycle → `system/`
+
+### Safety Rules (macOS)
+
+For `AXElement` wrapper:
+
+- Inner field must be `pub(crate)` not `pub`
+- `Clone` must call `CFRetain`
+- `Drop` must call `CFRelease`
+- No direct pointer extraction to prevent double-free
+
+## CI Requirements
+
+GitHub Actions runs on every PR:
+
+<Steps>
+  <Step title="Dependency isolation">
+    `cargo tree -p agent-desktop-core` must not contain platform crates
+  </Step>
+  <Step title="Lint check">
+    `cargo clippy --all-targets -- -D warnings` must pass with zero warnings
+  </Step>
+  <Step title="Full test suite">
+    `cargo test --workspace` must pass
+  </Step>
+  <Step title="Binary size check">
+    Release binary must be under 15MB
+  </Step>
+</Steps>
+
+## Git Workflow
+
+### Conventional Commits
+
+All commits must use a type prefix:
+
+- `feat:` — new feature (triggers minor version bump)
+- `fix:` — bug fix (triggers patch version bump)
+- `feat!:` or `BREAKING CHANGE:` — breaking change (major bump)
+- `docs:` — documentation only
+- `refactor:` — code change that neither fixes nor adds
+- `chore:` — maintenance tasks, dependencies
+- `ci:` — CI/CD changes
+- `test:` — adding or fixing tests
+
+**Format:** `type: concise imperative description` (lowercase type, no capital after colon)
+
+**Examples:**
+
+```bash
+feat: add scroll-to command
+fix: prevent stale ref on window resize
+ci: add binary size check
+docs: update architecture diagram
+```
+
+<Note>
+  Focus on "why" not "what". The diff shows what changed; the message explains why.
+</Note>
+
+## Performance Tips
+
+### macOS Tree Traversal
+
+<CardGroup cols={2}>
+  <Card title="Batch Attributes" icon="gauge-high">
+    Use `AXUIElementCopyMultipleAttributeValues` for 3-5x speedup vs. individual calls
+  </Card>
+  <Card title="Max Depth" icon="layer-group">
+    Default `--max-depth 10` prevents infinite loops. Adjust if needed.
+  </Card>
+  <Card title="Ancestor Paths" icon="sitemap">
+    Use ancestor-path sets, not global visited sets (macOS reuses pointers)
+  </Card>
+  <Card title="Interactive-Only" icon="hand-pointer">
+    Use `-i` flag to skip static elements and reduce tree size by ~70%
+  </Card>
+</CardGroup>
+
+## Debugging
+
+### Enable Tracing
+
+```bash
+RUST_LOG=debug ./target/debug/agent-desktop snapshot --app Finder -i
+```
+
+Levels: `error`, `warn`, `info`, `debug`, `trace`
+
+### Inspect JSON Output
+
+```bash
+agent-desktop snapshot -i | jq .
+```
+
+### Check RefMap
+
+Ref storage:
+
+```bash
+cat ~/.agent-desktop/last_refmap.json | jq .
+```
+
+## Contributing
+
+<Steps>
+  <Step title="Fork and clone">
+    Fork the repo and clone your fork locally
+  </Step>
+  <Step title="Create feature branch">
+    `git checkout -b feat/my-feature`
+  </Step>
+  <Step title="Make changes">
+    Follow coding standards, add tests, run clippy
+  </Step>
+  <Step title="Commit with conventional format">
+    `git commit -m "feat: add new command"`
+  </Step>
+  <Step title="Push and create PR">
+    Push to your fork and open a pull request
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="./architecture">
+    Understand the workspace structure and design patterns
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="./troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

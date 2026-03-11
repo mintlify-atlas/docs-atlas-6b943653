@@ -1,0 +1,84 @@
+---
+title: "close-app"
+description: "Quit an application gracefully or force-kill it"
+---
+
+## Usage
+
+```bash
+agent-desktop close-app <APP> [OPTIONS]
+```
+
+## Description
+
+Closes an application by sending a quit command. By default, this allows the application to perform cleanup (save files, prompt user, etc.). Use `--force` to immediately terminate the process.
+
+## Parameters
+
+<ParamField path="app" type="string" required>
+  Application name to close (e.g., "Safari", "TextEdit")
+</ParamField>
+
+<ParamField path="--force" type="boolean" default="false">
+  Force-kill the process (SIGKILL) instead of quitting gracefully. Use this if the app is unresponsive.
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "close-app",
+  "data": {
+    "app": "Safari",
+    "closed": true
+  }
+}
+```
+
+## Examples
+
+### Close application gracefully
+
+```bash
+agent-desktop close-app Safari
+```
+
+### Force-kill unresponsive application
+
+```bash
+agent-desktop close-app Safari --force
+```
+
+### Close and verify
+
+```bash
+agent-desktop close-app TextEdit
+agent-desktop wait 500
+agent-desktop list-apps | jq '.data.apps[] | select(.name == "TextEdit")'
+```
+
+## Error Codes
+
+- `APP_NOT_FOUND` — Application is not currently running
+- `INVALID_ARGS` — Attempted to close a protected system process
+- `ACTION_FAILED` — Failed to terminate the application
+
+## Protected Processes
+
+The following system processes cannot be closed for safety:
+
+- `loginwindow`
+- `windowserver`
+- `dock`
+- `launchd`
+- `finder`
+
+Attempting to close these will return an `INVALID_ARGS` error.
+
+## Notes
+
+- Without `--force`, the app may display save dialogs or confirmation prompts
+- Use `--force` only when necessary — it prevents cleanup and may cause data loss
+- On macOS, requires Accessibility permission

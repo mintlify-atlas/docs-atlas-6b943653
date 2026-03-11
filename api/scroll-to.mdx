@@ -1,0 +1,225 @@
+---
+title: scroll-to
+description: Scroll element into visible area
+---
+
+## Overview
+
+Scrolls the parent container to bring a specific element into view. This ensures the target element is visible on screen, making it ready for interaction.
+
+## Syntax
+
+```bash
+agent-desktop scroll-to <ref>
+```
+
+## Parameters
+
+<ParamField path="ref" type="string" required>
+  Element reference from snapshot (element to scroll into view)
+</ParamField>
+
+## Response
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "scroll-to",
+  "data": {
+    "action": "scroll_to",
+    "ref_id": "@e20"
+  }
+}
+```
+
+### Response Fields
+
+<ResponseField name="action" type="string">
+  The action performed (`scroll_to`)
+</ResponseField>
+
+<ResponseField name="ref_id" type="string" optional>
+  The element reference that was scrolled into view
+</ResponseField>
+
+## AX-First Strategy
+
+The scroll-to command:
+
+1. Uses `kAXScrollToVisibleAction` on the element via accessibility
+2. Calculates element position and scrolls parent container
+3. Falls back to mouse wheel events if AX fails
+4. Verifies element bounds are within visible area
+
+## Usage Examples
+
+### Scroll List Item Into View
+
+```bash
+agent-desktop snapshot --app Finder -i
+agent-desktop find --role "row" --name "file_deep_in_list.txt"
+agent-desktop scroll-to @e45
+agent-desktop click @e45
+```
+
+### Scroll and Interact
+
+```bash
+# Element may not be visible in initial snapshot
+agent-desktop snapshot --app Safari -i
+
+# Scroll to footer button
+agent-desktop scroll-to @e30
+
+# Now it's visible and clickable
+agent-desktop click @e30
+```
+
+### Scroll to Form Field
+
+```bash
+agent-desktop snapshot --app "System Settings" -i
+agent-desktop scroll-to @e18  # Scroll to "Submit" button
+agent-desktop click @e18
+```
+
+### Ensure Visibility Before Action
+
+```bash
+# Always scroll-to before clicking elements in long lists
+agent-desktop scroll-to @e25
+agent-desktop wait 200
+agent-desktop click @e25
+```
+
+## When to Use Scroll-To
+
+**Use `scroll-to` when:**
+- Element is in snapshot but may be off-screen
+- You need to interact with an element that's not visible
+- Working with long lists or scrollable containers
+- Ensuring element visibility before click/type
+
+**Not needed when:**
+- Element is already visible
+- Clicking elements in current viewport
+- Element doesn't have a parent scroll area
+
+## Scroll-To vs Scroll
+
+| Command | Target | Use Case |
+|---------|--------|----------|
+| `scroll-to` | Specific element by ref | Make element visible |
+| `scroll` | Direction + amount | Explore content, relative movement |
+
+```bash
+# scroll-to: "Show me element @e20"
+agent-desktop scroll-to @e20
+
+# scroll: "Move down 5 units"
+agent-desktop scroll @e1 --direction down --amount 5
+```
+
+## Common Use Cases
+
+- **Long Lists**: Scroll to items deep in file/folder lists
+- **Form Submissions**: Scroll to submit button at bottom
+- **Search Results**: Scroll to specific search result
+- **Tree Navigation**: Reveal nested tree items
+- **Settings Panels**: Scroll to specific setting in long panel
+
+## Element Visibility
+
+After `scroll-to`, the element:
+- Is within the visible bounds of its scroll area
+- May be at top, middle, or bottom of viewport (platform-dependent)
+- Is ready for interaction (click, type, etc.)
+- May have different coordinates than before
+
+## Error Cases
+
+| Error Code | Cause | Recovery |
+|------------|-------|----------|
+| `ELEMENT_NOT_FOUND` | Ref doesn't exist in current refmap | Run `snapshot` to refresh |
+| `STALE_REF` | Element no longer matches saved ref | Run `snapshot` and use new ref |
+| `ACTION_FAILED` | Element has no scrollable parent | Element may already be visible |
+| `ACTION_NOT_SUPPORTED` | Platform doesn't support scroll-to | Use `scroll` with direction |
+
+## Verifying Visibility
+
+```bash
+# Scroll to element
+agent-desktop scroll-to @e20
+
+# Check if visible
+agent-desktop is @e20 visible
+# Returns: {"ok": true, "data": true}
+
+# Or check bounds
+agent-desktop get @e20 bounds
+# Returns: {"x": ..., "y": ..., "width": ..., "height": ...}
+```
+
+## Scroll-To + Snapshot Pattern
+
+```bash
+# Initial snapshot may show element but it's off-screen
+agent-desktop snapshot -i
+
+# Scroll to element
+agent-desktop scroll-to @e25
+
+# Take new snapshot to see updated positions
+agent-desktop snapshot -i
+
+# Now interact with element
+agent-desktop click @e25
+```
+
+## Performance
+
+- Faster than multiple directional `scroll` commands
+- Single operation to reach target
+- Platform-optimized scrolling
+- May trigger smooth scroll animation
+
+## Automatic Scrolling
+
+Some commands implicitly scroll to element before interacting:
+
+| Command | Auto-Scrolls |
+|---------|-------------|
+| `click` | Sometimes (platform-dependent) |
+| `type` | No |
+| `set-value` | No |
+
+For guaranteed visibility, explicitly use `scroll-to` first:
+
+```bash
+agent-desktop scroll-to @e15
+agent-desktop click @e15
+```
+
+## Nested Scrolling
+
+For nested scroll areas:
+
+```bash
+# Scroll outer container
+agent-desktop scroll-to @e10
+
+# Then scroll inner container
+agent-desktop scroll-to @e25
+```
+
+## Notes
+
+- Element must exist in current snapshot (have a ref)
+- Scrolls parent container, not the element itself
+- Final position may vary (top/middle/bottom of viewport)
+- Some apps animate scroll; consider adding `wait`
+- Always snapshot after scroll-to to capture new state
+- Use `is @ref visible` to verify visibility
+- More efficient than searching with multiple `scroll` commands
+- Does not change focus or selection

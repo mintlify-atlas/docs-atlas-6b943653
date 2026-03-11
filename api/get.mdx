@@ -1,0 +1,248 @@
+---
+title: get
+description: Read an element property (text, value, title, bounds, role, states)
+---
+
+Read a specific property from an element identified by its ref ID. Properties include text content, value, title, bounds, role, and state information.
+
+## Usage
+
+```bash
+agent-desktop get <REF> --property <PROPERTY>
+```
+
+## Parameters
+
+<ParamField path="REF" type="string" required>
+  Element reference ID from a previous snapshot (e.g., `@e1`, `@e2`, `@e14`).
+</ParamField>
+
+<ParamField path="--property" type="enum" default="text">
+  Property to read from the element.
+  
+  **Options:**
+  - `text` - Text content or value
+  - `value` - Current value (for inputs, sliders, etc.)
+  - `title` - Accessible name or label
+  - `bounds` - Pixel bounds (x, y, width, height)
+  - `role` - Accessibility role
+  - `states` - Array of state strings
+</ParamField>
+
+## Response
+
+<ResponseField name="property" type="string">
+  Name of the property that was requested.
+</ResponseField>
+
+<ResponseField name="ref" type="string">
+  Reference ID that was queried.
+</ResponseField>
+
+<ResponseField name="value" type="any">
+  Value of the requested property. Type varies by property:
+  - `text`, `value`, `title`, `role`: string or null
+  - `bounds`: object with x, y, width, height or null
+  - `states`: array of strings
+</ResponseField>
+
+## Examples
+
+### Get text from a button
+
+```bash
+agent-desktop get @e3 --property title
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "title",
+    "ref": "@e3",
+    "value": "Save"
+  }
+}
+```
+
+### Get value from a text field
+
+```bash
+agent-desktop get @e7 --property value
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "value",
+    "ref": "@e7",
+    "value": "quarterly report.pdf"
+  }
+}
+```
+
+### Get role
+
+```bash
+agent-desktop get @e12 --property role
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "role",
+    "ref": "@e12",
+    "value": "checkbox"
+  }
+}
+```
+
+### Get bounds
+
+```bash
+agent-desktop get @e5 --property bounds
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "bounds",
+    "ref": "@e5",
+    "value": {
+      "x": 150.0,
+      "y": 300.0,
+      "width": 200.0,
+      "height": 24.0
+    }
+  }
+}
+```
+
+### Get states
+
+```bash
+agent-desktop get @e9 --property states
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "states",
+    "ref": "@e9",
+    "value": ["enabled", "checked"]
+  }
+}
+```
+
+### Get text (default property)
+
+```bash
+agent-desktop get @e2
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "text",
+    "ref": "@e2",
+    "value": "Search"
+  }
+}
+```
+
+### Empty value
+
+```bash
+agent-desktop get @e4 --property value
+```
+
+```json
+{
+  "version": "1.0",
+  "ok": true,
+  "command": "get",
+  "data": {
+    "property": "value",
+    "ref": "@e4",
+    "value": null
+  }
+}
+```
+
+## Error Cases
+
+### Stale ref
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "get",
+  "error": {
+    "code": "STALE_REF",
+    "message": "@e7 not found in current RefMap",
+    "suggestion": "Run 'snapshot' to refresh, then retry with updated ref"
+  }
+}
+```
+
+### Element not found
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "get",
+  "error": {
+    "code": "ELEMENT_NOT_FOUND",
+    "message": "Element @e99 could not be resolved",
+    "suggestion": "Run 'snapshot' to get fresh refs"
+  }
+}
+```
+
+### Invalid ref format
+
+```json
+{
+  "version": "1.0",
+  "ok": false,
+  "command": "get",
+  "error": {
+    "code": "INVALID_ARGS",
+    "message": "Invalid ref format: 'e3' (expected '@e3')"
+  }
+}
+```
+
+## Notes
+
+- The ref must be from the **last snapshot**. Refs become stale after a new snapshot is taken.
+- The command uses **optimistic re-identification** to verify the element still exists with matching (pid, role, name, bounds_hash).
+- For `text` and `value` properties, the command attempts to **fetch the live value** from the accessibility API. If unavailable, it falls back to the cached value from the snapshot.
+- For other properties (`title`, `bounds`, `role`, `states`), values are read from the **cached RefMap** (not re-queried from the OS).
+- To ensure fresh state information, run `snapshot` before calling `get`.
+- The `bounds` property returns `null` if bounds were not included in the original snapshot (requires `--include-bounds` flag).
+
+## See Also
+
+- [is](/api/is) - Check boolean element states
+- [snapshot](/api/snapshot) - Capture the accessibility tree
+- [find](/api/find) - Search for elements

@@ -1,0 +1,124 @@
+---
+title: Installation
+description: Install agent-desktop CLI via npm, npx, or build from source
+---
+
+## Quick Install
+
+The recommended way to install agent-desktop is via npm, which downloads a prebuilt binary automatically.
+
+<CodeGroup>
+
+```bash npm
+npm install -g agent-desktop
+```
+
+```bash npx
+npx agent-desktop snapshot --app Finder -i
+```
+
+```bash From Source
+git clone https://github.com/lahfir/agent-desktop
+cd agent-desktop
+cargo build --release
+cp target/release/agent-desktop /usr/local/bin/
+```
+
+</CodeGroup>
+
+## Requirements
+
+<Note>
+  **Platform support:** macOS 13.0+ (Ventura or later)
+  
+  Windows and Linux support is planned for Phase 2.
+</Note>
+
+### For npm installation
+- Node.js 18 or later
+- macOS 13.0+
+
+### For building from source
+- Rust 1.78+ 
+- macOS 13.0+
+- Xcode Command Line Tools
+
+## Installation Methods
+
+<Steps>
+
+<Step title="Install via npm (recommended)">
+  
+  Install globally to use `agent-desktop` from anywhere:
+  
+  ```bash
+  npm install -g agent-desktop
+  ```
+  
+  The postinstall script automatically downloads the correct prebuilt binary for your platform.
+  
+</Step>
+
+<Step title="Run without installing (npx)">
+  
+  Use npx to run agent-desktop without global installation:
+  
+  ```bash
+  npx agent-desktop snapshot --app Finder -i
+  npx agent-desktop click @e3
+  ```
+  
+  Perfect for CI environments or one-off automation tasks.
+  
+</Step>
+
+<Step title="Build from source">
+  
+  For development or custom builds:
+  
+  ```bash
+  # Clone the repository
+  git clone https://github.com/lahfir/agent-desktop
+  cd agent-desktop
+  
+  # Build optimized release binary
+  cargo build --release
+  
+  # Copy to your PATH
+  cp target/release/agent-desktop /usr/local/bin/
+  ```
+  
+  The release build is optimized to under 15MB with LTO and strip enabled.
+  
+</Step>
+
+</Steps>
+
+## Verify Installation
+
+Check that agent-desktop is installed correctly:
+
+```bash
+agent-desktop version
+```
+
+You should see version `0.1.11` or later.
+
+## Next Steps
+
+<Warning>
+  macOS requires Accessibility permission before agent-desktop can interact with applications.
+  
+  See [Permissions](/permissions) to grant the required permissions.
+</Warning>
+
+After installation:
+
+<CardGroup cols={2}>
+  <Card title="Set up permissions" icon="lock" href="/permissions">
+    Grant macOS Accessibility permission
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Learn the snapshot → act → snapshot workflow
+  </Card>
+</CardGroup>
